@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { baseAgents, baseTasks, type Agent, type Task } from "@/lib/dashboard-data";
 
+const BUILD_TAG = "2026-03-04 08:27 GMT+1";
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(baseTasks);
   const [agents, setAgents] = useState<Agent[]>(baseAgents);
@@ -69,7 +71,7 @@ export default function Home() {
           </div>
           <h1 className="text-2xl font-bold md:text-3xl">Universal Task Dashboard</h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Realtime subagent activity + premium mobile UX</p>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Last synced: {new Date(updatedAt).toLocaleTimeString()}</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Last synced: {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}</p>
         </header>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
