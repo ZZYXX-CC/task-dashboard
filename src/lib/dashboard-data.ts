@@ -25,7 +25,7 @@ export type Agent = {
 export const baseTasks: Task[] = [
   { id: "SG-001", title: "Homepage v2 hero + CTA redesign", project: "St. Gabriel Website v2", owner: "design-agent", status: "In Progress", priority: "Critical", due: "Today, 10:30", progress: 72 },
   { id: "SG-002", title: "Programs page cards + filtering", project: "St. Gabriel Website v2", owner: "frontend-agent", status: "In Progress", priority: "High", due: "Today, 12:00", progress: 54 },
-  { id: "SG-003", title: "Admissions form validation and UX", project: "St. Gabriel Website v2", owner: "qa-agent", status: "Blocked", priority: "High", due: "Today, 13:30", progress: 38, blockers: "Need final required fields list" },
+  { id: "SG-003", title: "Admissions form validation and UX", project: "St. Gabriel Website v2", owner: "frontend-agent", status: "In Progress", priority: "High", due: "Today, 13:30", progress: 44 },
   { id: "DB-001", title: "Agent activity feed + status chips", project: "Universal Task Dashboard", owner: "dashboard-agent", status: "In Progress", priority: "Critical", due: "Today, 11:00", progress: 80 },
   { id: "TB-001", title: "Trading bot runtime monitor", project: "Trading Bot Monitoring", owner: "ops-agent", status: "In Progress", priority: "Critical", due: "Today, 08:30", progress: 62 },
   { id: "TB-004", title: "Watchdog auto-restart for bot session", project: "Trading Bot Monitoring", owner: "ops-agent", status: "In Progress", priority: "High", due: "Today, 09:15", progress: 35 },
@@ -34,7 +34,6 @@ export const baseTasks: Task[] = [
 export const baseAgents: Agent[] = [
   { name: "design-agent", model: "gemini-3.1-flash", status: "Running", currentTask: "Refining hero section spacing + color contrast", lastUpdate: "2m ago", tokensUsed: "31k" },
   { name: "frontend-agent", model: "codex-mini", status: "Running", currentTask: "Implementing programs grid and detail routing", lastUpdate: "1m ago", tokensUsed: "28k" },
-  { name: "qa-agent", model: "codex-mini", status: "Blocked", currentTask: "Waiting on final admissions schema + required field list", lastUpdate: "just now", tokensUsed: "10k" },
   { name: "ops-agent", model: "codex-mini", status: "Running", currentTask: "Paper bot running + watchdog setup", lastUpdate: "just now", tokensUsed: "9k" },
 ];
 
@@ -49,7 +48,6 @@ export function generateLiveSnapshot(now = Date.now()) {
   const agents = baseAgents.map((a, i) => ({
     ...a,
     lastUpdate: `${(pulse + i) % 3 + 1}m ago`,
-    status: a.name === "qa-agent" && pulse % 4 === 0 ? "Running" : a.status,
   }));
 
   return { tasks, agents, updatedAt: new Date(now).toISOString() };
