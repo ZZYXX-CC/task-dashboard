@@ -26,7 +26,7 @@ export const baseTasks: Task[] = [
   { id: "SG-001", title: "Homepage v2 hero + CTA redesign", project: "St. Gabriel Website v2", owner: "design-agent", status: "Done", priority: "Critical", due: "Completed", progress: 100 },
   { id: "SG-002", title: "Programs page cards + filtering", project: "St. Gabriel Website v2", owner: "frontend-agent", status: "Done", priority: "High", due: "Completed", progress: 100 },
   { id: "SG-003", title: "Admissions/contact/about/news Stitch implementation", project: "St. Gabriel Website v2", owner: "frontend-agent", status: "Done", priority: "High", due: "Completed", progress: 100 },
-  { id: "SG-004", title: "Hero refinement pass + African illustration assets", project: "St. Gabriel Website v2", owner: "design-agent", status: "In Progress", priority: "Critical", due: "Today, 17:30", progress: 58 },
+  { id: "SG-004", title: "Hero refinement pass + African illustration assets", project: "St. Gabriel Website v2", owner: "design-agent", status: "Done", priority: "Critical", due: "Completed", progress: 100 },
   { id: "DB-001", title: "Agent activity feed + status chips", project: "Universal Task Dashboard", owner: "dashboard-agent", status: "Done", priority: "Critical", due: "Completed", progress: 100 },
   { id: "DB-002", title: "Detailed task modal (actions, traces, dependencies)", project: "Universal Task Dashboard", owner: "dashboard-agent", status: "Done", priority: "High", due: "Completed", progress: 100 },
   { id: "TB-001", title: "Trading bot runtime monitor", project: "Trading Bot Monitoring", owner: "ops-agent", status: "In Progress", priority: "Critical", due: "Today, 18:00", progress: 76 },
