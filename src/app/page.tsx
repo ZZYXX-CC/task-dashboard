@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { baseAgents, baseTasks, type Agent, type Task } from "@/lib/dashboard-data";
 
 const BUILD_TAG = "2026-03-04 12:36 GMT+1";
@@ -55,7 +56,10 @@ export default function Home() {
               <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-300">Stitch UI · Ops Center</p>
               <h1 className="text-2xl font-extrabold">Universal Task Dashboard</h1>
             </div>
-            <span className="rounded-full bg-[#4a94c4] px-3 py-1 text-xs font-bold text-white">Live</span>
+            <div className="flex items-center gap-2">
+              <Link href="/trading" className="rounded-full bg-[#ffd400] px-3 py-1 text-xs font-bold text-slate-900 hover:opacity-90">Trading Panel</Link>
+              <span className="rounded-full bg-[#4a94c4] px-3 py-1 text-xs font-bold text-white">Live</span>
+            </div>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Updated {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}</p>
         </header>
