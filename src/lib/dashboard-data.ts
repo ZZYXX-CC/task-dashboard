@@ -34,7 +34,7 @@ export const baseTasks: Task[] = [
 export const baseAgents: Agent[] = [
   { name: "design-agent", model: "gemini-3.1-flash", status: "Running", currentTask: "Refining hero section spacing + color contrast", lastUpdate: "2m ago", tokensUsed: "31k" },
   { name: "frontend-agent", model: "codex-mini", status: "Running", currentTask: "Implementing programs grid and detail routing", lastUpdate: "1m ago", tokensUsed: "28k" },
-  { name: "qa-agent", model: "codex-mini", status: "Error", currentTask: "Admissions form schema mismatch", lastUpdate: "30s ago", tokensUsed: "10k" },
+  { name: "qa-agent", model: "codex-mini", status: "Running", currentTask: "Admissions schema fix validated, continuing regression checks", lastUpdate: "just now", tokensUsed: "10k" },
   { name: "ops-agent", model: "codex-mini", status: "Running", currentTask: "Paper bot running + watchdog setup", lastUpdate: "just now", tokensUsed: "9k" },
 ];
 
