@@ -3,29 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { baseAgents, baseTasks, type Agent, type Task } from "@/lib/dashboard-data";
 
-const BUILD_TAG = "2026-03-04 08:44 GMT+1";
-
-type DetailTab = "overview" | "actions" | "reasoning";
+const BUILD_TAG = "2026-03-04 12:36 GMT+1";
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(baseTasks);
   const [agents, setAgents] = useState<Agent[]>(baseAgents);
   const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
-  const [view, setView] = useState<"list" | "kanban">("list");
-  const [dark, setDark] = useState(false);
-
+  const [active, setActive] = useState<"tasks" | "agents">("tasks");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [detailTab, setDetailTab] = useState<DetailTab>("overview");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("dashboard-theme");
-    if (saved === "dark") setDark(true);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("dashboard-theme", dark ? "dark" : "light");
-  }, [dark]);
 
   useEffect(() => {
     const es = new EventSource("/api/live");
@@ -39,260 +24,101 @@ export default function Home() {
   }, []);
 
   const stats = useMemo(() => {
-    const done = tasks.filter((t) => t.status === "Done").length;
-    const blocked = tasks.filter((t) => t.status === "Blocked").length;
     const inProgress = tasks.filter((t) => t.status === "In Progress").length;
-    const avgProgress = Math.round(tasks.reduce((acc, t) => acc + t.progress, 0) / tasks.length);
-    return { done, blocked, inProgress, avgProgress };
+    const blocked = tasks.filter((t) => t.status === "Blocked").length;
+    const done = tasks.filter((t) => t.status === "Done").length;
+    const avg = Math.round(tasks.reduce((a, t) => a + t.progress, 0) / Math.max(tasks.length, 1));
+    return { inProgress, blocked, done, avg };
   }, [tasks]);
 
-  const taskStatusClass = (status: string) =>
-    ({
-      "Not Started": "bg-slate-100 text-slate-700",
-      "In Progress": "bg-blue-100 text-blue-700",
-      Blocked: "bg-red-100 text-red-700",
-      Done: "bg-emerald-100 text-emerald-700",
-    }[status] || "bg-slate-100 text-slate-700");
-
-  const agentStatusClass = (status: Agent["status"]) =>
-    ({
-      Running: "bg-emerald-100 text-emerald-700",
-      Idle: "bg-amber-100 text-amber-700",
-      Blocked: "bg-red-100 text-red-700",
-      Error: "bg-red-100 text-red-700",
-    }[status]);
-
-  const taskActions = useMemo(() => {
-    if (!selectedTask) return [] as string[];
-    return [
-      `Assigned ${selectedTask.owner} to ${selectedTask.id}`,
-      `Updated progress to ${selectedTask.progress}%`,
-      `Checked dependencies for ${selectedTask.project}`,
-      selectedTask.status === "Blocked"
-        ? `Task blocked: ${selectedTask.blockers ?? "dependency pending"}`
-        : "No active blockers detected",
-      `Next checkpoint scheduled before ${selectedTask.due}`,
-    ];
-  }, [selectedTask]);
-
-  const taskReasoning = useMemo(() => {
-    if (!selectedTask) return [] as string[];
-    return [
-      "Prioritized by due date + project criticality.",
-      "Maintaining incremental delivery to avoid large risky merges.",
-      "Current approach favors visible progress over speculative refactors.",
-      selectedTask.status === "In Progress"
-        ? "Task remains active because dependencies are available."
-        : "Task state is constrained by external dependency.",
-    ];
-  }, [selectedTask]);
-
-  const agentActions = useMemo(() => {
-    if (!selectedAgent) return [] as string[];
-    return [
-      `Model route: ${selectedAgent.model}`,
-      `Current execution: ${selectedAgent.currentTask}`,
-      `Heartbeat update: ${selectedAgent.lastUpdate}`,
-      `Resource usage: ${selectedAgent.tokensUsed}`,
-      selectedAgent.status === "Running"
-        ? "Agent actively processing tasks."
-        : "Agent is not actively executing; awaiting next task.",
-    ];
-  }, [selectedAgent]);
-
   return (
-    <main className={`${dark ? "dark" : ""} min-h-screen p-4 text-slate-900 transition-colors md:p-6`}>
-      <div className="mx-auto max-w-7xl space-y-4 md:space-y-6">
-        <header className="glass rounded-3xl p-5 text-slate-900 dark:text-slate-100 md:p-7">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300">Live Ops</p>
-            <button
-              onClick={() => setDark((d) => !d)}
-              className="rounded-full border border-slate-300/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700 backdrop-blur dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-200"
-            >
-              {dark ? "☀️ Light" : "🌙 Dark"}
-            </button>
+    <main className="min-h-screen bg-gradient-to-b from-[#f5f9ff] to-[#edf4ff] text-slate-900 dark:from-[#0a1428] dark:to-[#050b18] dark:text-slate-100">
+      <div className="mx-auto max-w-6xl px-4 pb-28 pt-6">
+        <header className="glass rounded-3xl border border-white/40 p-5 shadow-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-300">Stitch UI · Ops Center</p>
+              <h1 className="text-2xl font-extrabold">Universal Task Dashboard</h1>
+            </div>
+            <span className="rounded-full bg-[#4a94c4] px-3 py-1 text-xs font-bold text-white">Live</span>
           </div>
-          <h1 className="text-2xl font-bold md:text-3xl">Universal Task Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Tap any task or agent to inspect what it is doing.</p>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Last synced: {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}
-          </p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Updated {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}</p>
         </header>
 
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label="In Progress" value={`${stats.inProgress}`} />
-          <Stat label="Blocked" value={`${stats.blocked}`} />
-          <Stat label="Done" value={`${stats.done}`} />
-          <Stat label="Avg" value={`${stats.avgProgress}%`} />
+        <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Metric label="In Progress" value={stats.inProgress} tone="blue" />
+          <Metric label="Blocked" value={stats.blocked} tone="red" />
+          <Metric label="Done" value={stats.done} tone="green" />
+          <Metric label="Avg Progress" value={`${stats.avg}%`} tone="amber" />
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
-          <div className="glass rounded-2xl p-4 lg:col-span-2">
+        <section className="mt-5 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="glass rounded-3xl border border-white/40 p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold dark:text-slate-100">Tasks</h2>
-              <div className="rounded-lg border border-slate-300/60 p-1 text-xs dark:border-slate-600">
-                <button className={`rounded px-2 py-1 ${view === "list" ? "bg-[#4a94c4] text-white" : "dark:text-slate-200"}`} onClick={() => setView("list")}>List</button>
-                <button className={`rounded px-2 py-1 ${view === "kanban" ? "bg-[#4a94c4] text-white" : "dark:text-slate-200"}`} onClick={() => setView("kanban")}>Kanban</button>
-              </div>
+              <h2 className="font-bold">Task Stream</h2>
+              <span className="rounded-full bg-[#ffd400] px-2 py-1 text-[11px] font-semibold text-slate-900">Tap for details</span>
             </div>
-
-            {view === "list" ? (
-              <div className="space-y-2">
-                {tasks.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setSelectedTask(t);
-                      setSelectedAgent(null);
-                      setDetailTab("overview");
-                    }}
-                    className="glass w-full rounded-xl p-3 text-left transition hover:scale-[1.01]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold dark:text-slate-100">{t.title}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">{t.project} · {t.id} · {t.owner}</p>
-                      </div>
-                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${taskStatusClass(t.status)}`}>{t.status}</span>
-                    </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-slate-200/80 dark:bg-slate-700">
-                      <div className="h-full rounded-full bg-[#4a94c4]" style={{ width: `${t.progress}%` }} />
-                    </div>
-                    {t.blockers ? <p className="mt-1 text-xs text-red-600">Blocker: {t.blockers}</p> : null}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {["Not Started", "In Progress", "Blocked", "Done"].map((col) => (
-                  <div key={col} className="glass rounded-xl p-2">
-                    <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{col}</p>
-                    <div className="space-y-2">
-                      {tasks.filter((t) => t.status === col).map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            setSelectedTask(t);
-                            setSelectedAgent(null);
-                            setDetailTab("overview");
-                          }}
-                          className="glass w-full rounded-lg p-2 text-left text-xs"
-                        >
-                          <p className="font-medium dark:text-slate-100">{t.title}</p>
-                          <p className="text-slate-600 dark:text-slate-400">{t.owner}</p>
-                        </button>
-                      ))}
-                    </div>
+            <div className="space-y-2">
+              {tasks.map((t) => (
+                <button key={t.id} onClick={() => setSelectedTask(t)} className="w-full rounded-2xl border border-white/40 bg-white/70 p-3 text-left transition hover:scale-[1.01] dark:bg-slate-900/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{t.title}</p>
+                    <StatusChip status={t.status} />
                   </div>
-                ))}
-              </div>
-            )}
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t.project} · {t.owner} · {t.id}</p>
+                  <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div className="h-full rounded-full bg-[#4a94c4]" style={{ width: `${t.progress}%` }} />
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="glass rounded-2xl p-4">
-              <h2 className="mb-2 font-semibold dark:text-slate-100">Subagents</h2>
-              <div className="space-y-2">
-                {agents.map((a) => (
-                  <button
-                    key={a.name}
-                    onClick={() => {
-                      setSelectedAgent(a);
-                      setSelectedTask(null);
-                      setDetailTab("overview");
-                    }}
-                    className="glass w-full rounded-xl p-3 text-left transition hover:scale-[1.01]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold dark:text-slate-100">{a.name}</p>
-                      <span className={`rounded-full px-2 py-1 text-xs ${agentStatusClass(a.status)}`}>{a.status}</span>
-                    </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">{a.model}</p>
-                    <p className="mt-1 text-xs dark:text-slate-200">{a.currentTask}</p>
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{a.lastUpdate} · {a.tokensUsed}</p>
-                  </button>
-                ))}
-              </div>
+          <div className="glass rounded-3xl border border-white/40 p-4 shadow-lg">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold">Agents</h2>
+              <span className="text-xs text-slate-500">{agents.length} active</span>
+            </div>
+            <div className="space-y-2">
+              {agents.map((a) => (
+                <div key={a.name} className="rounded-2xl border border-white/40 bg-white/70 p-3 dark:bg-slate-900/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{a.name}</p>
+                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${a.status === "Running" ? "bg-emerald-100 text-emerald-700" : a.status === "Blocked" || a.status === "Error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{a.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{a.model}</p>
+                  <p className="mt-1 text-xs">{a.currentTask}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
       </div>
 
-      {(selectedTask || selectedAgent) && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 p-3 backdrop-blur-sm" onClick={() => { setSelectedTask(null); setSelectedAgent(null); }}>
-          <div className="mx-auto mt-10 max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="glass rounded-2xl p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Details</p>
-                  <h3 className="text-lg font-bold dark:text-slate-100">
-                    {selectedTask ? selectedTask.title : selectedAgent?.name}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => { setSelectedTask(null); setSelectedAgent(null); }}
-                  className="rounded-full border border-slate-300/70 bg-white/70 px-3 py-1 text-xs dark:border-slate-600 dark:bg-slate-900/50"
-                >
-                  Close
-                </button>
+      <nav className="fixed bottom-3 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-2xl border border-white/40 bg-white/80 p-2 shadow-2xl backdrop-blur dark:bg-slate-900/70">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <button onClick={() => setActive("tasks")} className={`rounded-xl px-3 py-2 font-semibold ${active === "tasks" ? "bg-[#4a94c4] text-white" : "text-slate-600 dark:text-slate-300"}`}>Tasks</button>
+          <button onClick={() => setActive("agents")} className={`rounded-xl px-3 py-2 font-semibold ${active === "agents" ? "bg-[#4a94c4] text-white" : "text-slate-600 dark:text-slate-300"}`}>Agents</button>
+        </div>
+      </nav>
+
+      {selectedTask && (
+        <div className="fixed inset-0 z-50 bg-slate-900/45 p-3 backdrop-blur-sm" onClick={() => setSelectedTask(null)}>
+          <div className="mx-auto mt-16 max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="glass rounded-3xl border border-white/40 p-4 shadow-2xl">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-lg font-bold">{selectedTask.title}</h3>
+                <button className="rounded-full border px-3 py-1 text-xs" onClick={() => setSelectedTask(null)}>Close</button>
               </div>
-
-              <div className="mb-3 flex gap-2 text-xs">
-                {(["overview", "actions", "reasoning"] as DetailTab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setDetailTab(tab)}
-                    className={`rounded-full px-3 py-1 ${detailTab === tab ? "bg-[#4a94c4] text-white" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+              <div className="space-y-1 text-sm">
+                <p><b>ID:</b> {selectedTask.id}</p>
+                <p><b>Project:</b> {selectedTask.project}</p>
+                <p><b>Owner:</b> {selectedTask.owner}</p>
+                <p><b>Status:</b> {selectedTask.status}</p>
+                <p><b>Due:</b> {selectedTask.due}</p>
+                <p><b>Progress:</b> {selectedTask.progress}%</p>
+                {selectedTask.blockers ? <p><b>Blocker:</b> {selectedTask.blockers}</p> : null}
               </div>
-
-              {detailTab === "overview" && selectedTask && (
-                <div className="space-y-2 text-sm">
-                  <p><b>Task ID:</b> {selectedTask.id}</p>
-                  <p><b>Project:</b> {selectedTask.project}</p>
-                  <p><b>Owner:</b> {selectedTask.owner}</p>
-                  <p><b>Status:</b> {selectedTask.status}</p>
-                  <p><b>Due:</b> {selectedTask.due}</p>
-                  <p><b>Progress:</b> {selectedTask.progress}%</p>
-                  {selectedTask.blockers ? <p><b>Blocker:</b> {selectedTask.blockers}</p> : null}
-                </div>
-              )}
-
-              {detailTab === "overview" && selectedAgent && (
-                <div className="space-y-2 text-sm">
-                  <p><b>Agent:</b> {selectedAgent.name}</p>
-                  <p><b>Model:</b> {selectedAgent.model}</p>
-                  <p><b>Status:</b> {selectedAgent.status}</p>
-                  <p><b>Current task:</b> {selectedAgent.currentTask}</p>
-                  <p><b>Last update:</b> {selectedAgent.lastUpdate}</p>
-                  <p><b>Tokens used:</b> {selectedAgent.tokensUsed}</p>
-                </div>
-              )}
-
-              {detailTab === "actions" && (
-                <ul className="space-y-2 text-sm">
-                  {(selectedTask ? taskActions : agentActions).map((line) => (
-                    <li key={line} className="glass rounded-lg p-2">• {line}</li>
-                  ))}
-                </ul>
-              )}
-
-              {detailTab === "reasoning" && (
-                <ul className="space-y-2 text-sm">
-                  {(selectedTask ? taskReasoning : [
-                    "Execution priority is based on active blockers and due windows.",
-                    "Agent state is mapped from latest runtime heartbeat + queue pressure.",
-                    "When agent is blocked/error, workload is reassigned to available runners.",
-                    "Action logs are summarized for readability on mobile.",
-                  ]).map((line) => (
-                    <li key={line} className="glass rounded-lg p-2">• {line}</li>
-                  ))}
-                </ul>
-              )}
             </div>
           </div>
         </div>
@@ -301,11 +127,22 @@ export default function Home() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, tone }: { label: string; value: string | number; tone: "blue" | "red" | "green" | "amber" }) {
+  const toneClass = {
+    blue: "from-blue-500/20 to-blue-200/20",
+    red: "from-red-500/20 to-red-200/20",
+    green: "from-emerald-500/20 to-emerald-200/20",
+    amber: "from-amber-500/20 to-amber-200/20",
+  }[tone];
   return (
-    <div className="glass rounded-2xl p-3 md:p-4">
-      <p className="text-xs text-slate-600 dark:text-slate-400">{label}</p>
-      <p className="text-xl font-bold dark:text-slate-100 md:text-2xl">{value}</p>
+    <div className={`glass rounded-2xl border border-white/40 bg-gradient-to-br ${toneClass} p-3`}>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-extrabold">{value}</p>
     </div>
   );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const cls = status === "In Progress" ? "bg-blue-100 text-blue-700" : status === "Done" ? "bg-emerald-100 text-emerald-700" : status === "Blocked" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700";
+  return <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${cls}`}>{status}</span>;
 }
