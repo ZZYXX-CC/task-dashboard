@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eef4fb;
+  --foreground: #0f172a;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(255, 255, 255, 0.55);
 }
 
 @theme inline {
@@ -12,15 +14,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #050b18;
+  --foreground: #e6eefc;
+  --card: rgba(15, 23, 42, 0.55);
+  --card-border: rgba(148, 163, 184, 0.25);
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at top, #dbeafe 0%, var(--background) 40%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body {
+  background: radial-gradient(circle at top, #0b1835 0%, var(--background) 45%);
+}
+
+.glass {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.12);
 }
