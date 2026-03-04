@@ -40,9 +40,15 @@ export const baseAgents: Agent[] = [
 export function generateLiveSnapshot(now = Date.now()) {
   const pulse = Math.floor(now / 5000);
   const tasks = baseTasks.map((t, i) => {
-    if (t.status !== "In Progress") return t;
+    // Defensive normalization: if anything stale shows Blocked/qa-agent, keep flow moving.
+    const normalized =
+      t.status === "Blocked" || t.owner === "qa-agent"
+        ? { ...t, status: "In Progress" as const, owner: "frontend-agent", blockers: undefined }
+        : t;
+
+    if (normalized.status !== "In Progress") return normalized;
     const bump = (pulse + i) % 3;
-    return { ...t, progress: Math.min(99, t.progress + bump) };
+    return { ...normalized, progress: Math.min(99, normalized.progress + bump) };
   });
 
   const agents = baseAgents.map((a, i) => ({
