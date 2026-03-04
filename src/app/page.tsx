@@ -31,6 +31,21 @@ export default function Home() {
     return { inProgress, blocked, done, avg };
   }, [tasks]);
 
+  const tokenStats = useMemo(() => {
+    const parseTokens = (v: string) => {
+      const m = v.trim().toLowerCase();
+      if (m.endsWith("k")) return Math.round(parseFloat(m) * 1000);
+      if (m.endsWith("m")) return Math.round(parseFloat(m) * 1000000);
+      const n = Number(m.replace(/,/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const perAgent = agents.map((a) => ({ name: a.name, tokens: parseTokens(a.tokensUsed) }));
+    const total = perAgent.reduce((acc, a) => acc + a.tokens, 0);
+    const top = [...perAgent].sort((a, b) => b.tokens - a.tokens)[0];
+    return { perAgent, total, top };
+  }, [agents]);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#f5f9ff] to-[#edf4ff] text-slate-900 dark:from-[#0a1428] dark:to-[#050b18] dark:text-slate-100">
       <div className="mx-auto max-w-6xl px-4 pb-28 pt-6">
@@ -50,6 +65,26 @@ export default function Home() {
           <Metric label="Blocked" value={stats.blocked} tone="red" />
           <Metric label="Done" value={stats.done} tone="green" />
           <Metric label="Avg Progress" value={`${stats.avg}%`} tone="amber" />
+        </section>
+
+        <section className="mt-3 glass rounded-2xl border border-white/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-bold">Token Usage Summary</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Total: {tokenStats.total.toLocaleString()}</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {tokenStats.perAgent.map((x) => (
+              <div key={x.name} className="rounded-xl border border-white/40 bg-white/70 p-2 text-xs dark:bg-slate-900/40">
+                <p className="font-semibold">{x.name}</p>
+                <p className="text-slate-500 dark:text-slate-400">{x.tokens.toLocaleString()} tokens</p>
+              </div>
+            ))}
+          </div>
+          {tokenStats.top ? (
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+              Highest usage: <b>{tokenStats.top.name}</b> ({tokenStats.top.tokens.toLocaleString()} tokens)
+            </p>
+          ) : null}
         </section>
 
         <section className="mt-5 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
