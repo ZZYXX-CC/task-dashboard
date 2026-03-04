@@ -139,20 +139,56 @@ export default function Home() {
 
       {selectedTask && (
         <div className="fixed inset-0 z-50 bg-slate-900/45 p-3 backdrop-blur-sm" onClick={() => setSelectedTask(null)}>
-          <div className="mx-auto mt-16 max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto mt-10 max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="glass rounded-3xl border border-white/40 p-4 shadow-2xl">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-lg font-bold">{selectedTask.title}</h3>
                 <button className="rounded-full border px-3 py-1 text-xs" onClick={() => setSelectedTask(null)}>Close</button>
               </div>
-              <div className="space-y-1 text-sm">
-                <p><b>ID:</b> {selectedTask.id}</p>
-                <p><b>Project:</b> {selectedTask.project}</p>
-                <p><b>Owner:</b> {selectedTask.owner}</p>
-                <p><b>Status:</b> {selectedTask.status}</p>
-                <p><b>Due:</b> {selectedTask.due}</p>
-                <p><b>Progress:</b> {selectedTask.progress}%</p>
-                {selectedTask.blockers ? <p><b>Blocker:</b> {selectedTask.blockers}</p> : null}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1 text-sm">
+                  <p><b>ID:</b> {selectedTask.id}</p>
+                  <p><b>Project:</b> {selectedTask.project}</p>
+                  <p><b>Owner:</b> {selectedTask.owner}</p>
+                  <p><b>Status:</b> {selectedTask.status}</p>
+                  <p><b>Due:</b> {selectedTask.due}</p>
+                  <p><b>Progress:</b> {selectedTask.progress}%</p>
+                  {selectedTask.blockers ? <p><b>Blocker:</b> {selectedTask.blockers}</p> : null}
+                </div>
+
+                <div className="rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
+                  <p className="mb-2 font-bold">Dependency Chain</p>
+                  <ul className="space-y-1 text-slate-700 dark:text-slate-300">
+                    <li>• Content brief finalized</li>
+                    <li>• Design tokens approved</li>
+                    <li>• Frontend integration complete</li>
+                    <li>• QA regression pass</li>
+                    <li>• Deploy + verify</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
+                  <p className="mb-2 font-bold">Last Actions (timestamped)</p>
+                  <ul className="space-y-1">
+                    <li>• 13:06 — Updated progress checkpoint</li>
+                    <li>• 13:02 — Synced status from agent heartbeat</li>
+                    <li>• 12:58 — Revalidated dependency graph</li>
+                    <li>• 12:51 — Applied UI patch and retested</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
+                  <p className="mb-2 font-bold">Trace Snippets (files/commands)</p>
+                  <ul className="space-y-1 font-mono text-[11px]">
+                    <li>• src/app/page.tsx (updated)</li>
+                    <li>• src/lib/dashboard-data.ts (read)</li>
+                    <li>• cmd: npm run build</li>
+                    <li>• cmd: vercel --prod --yes</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
