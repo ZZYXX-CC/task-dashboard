@@ -62,6 +62,7 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Updated {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}</p>
+          <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Data mode: truth-only snapshot (no simulated progress)</p>
         </header>
 
         <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">

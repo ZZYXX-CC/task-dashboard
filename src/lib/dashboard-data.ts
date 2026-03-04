@@ -40,23 +40,12 @@ export const baseAgents: Agent[] = [
 ];
 
 export function generateLiveSnapshot(now = Date.now()) {
-  const pulse = Math.floor(now / 5000);
-  const tasks = baseTasks.map((t, i) => {
-    // Defensive normalization: if anything stale shows Blocked/qa-agent, keep flow moving.
-    const normalized =
-      t.status === "Blocked" || t.owner === "qa-agent"
-        ? { ...t, status: "In Progress" as const, owner: "frontend-agent", blockers: undefined }
-        : t;
-
-    if (normalized.status !== "In Progress") return normalized;
-    const bump = (pulse + i) % 3;
-    return { ...normalized, progress: Math.min(99, normalized.progress + bump) };
-  });
-
-  const agents = baseAgents.map((a, i) => ({
-    ...a,
-    lastUpdate: `${(pulse + i) % 3 + 1}m ago`,
-  }));
-
-  return { tasks, agents, updatedAt: new Date(now).toISOString() };
+  // Truth-only snapshot: no synthetic progress/status mutation.
+  // This keeps dashboard data trustworthy until full telemetry wiring is complete.
+  return {
+    tasks: baseTasks,
+    agents: baseAgents,
+    updatedAt: new Date(now).toISOString(),
+    source: "static-truth",
+  };
 }
