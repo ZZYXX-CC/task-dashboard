@@ -11,6 +11,8 @@ type Position = {
   tp: number;
   size: number;
   reason: string;
+  unrealizedPnl: number | null;
+  unrealizedPnlPct: number | null;
 };
 
 type Trade = {
@@ -21,13 +23,25 @@ type Trade = {
   reason: string;
 };
 
+type EventItem = {
+  time: string;
+  kind: string;
+  message: string;
+  data?: Record<string, unknown>;
+};
+
 type TradingState = {
-  status: "running" | "stopped";
+  status: "running" | "stopped" | "degraded" | "stale";
   mode: "paper" | "live";
   balance: number;
   equity: number;
+  freshnessTs: string | null;
+  stale: boolean;
+  staleSeconds: number | null;
+  sourceTags: string[];
   openPositions: Position[];
   history: Trade[];
+  lastEvents: EventItem[];
 };
 
 export default function TradingPage() {
@@ -65,17 +79,29 @@ export default function TradingPage() {
     localStorage.setItem("trading-mode", m);
   };
 
+  const effectiveMode = state?.mode || mode;
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-4">
         <header className="glass rounded-2xl p-4">
           <h1 className="text-2xl font-bold">Trading Bot Control Panel</h1>
           <p className="text-sm text-slate-600">History, balance, status, open positions, and mode/settings in one place.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {(state?.sourceTags || []).map((tag) => (
+              <span key={tag} className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700">#{tag}</span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-600">
+            Freshness: {state?.freshnessTs ? new Date(state.freshnessTs).toLocaleString() : "n/a"}
+            {state?.stale ? ` · stale (${state?.staleSeconds ?? "?"}s)` : " · healthy"}
+          </p>
+          {state?.stale && <p className="mt-1 text-sm font-semibold text-amber-700">⚠️ Telemetry stale: no fresh snapshot in &gt;60s.</p>}
         </header>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card label="Bot Status" value={state?.status?.toUpperCase() || "..."} />
-          <Card label="Mode" value={mode.toUpperCase()} />
+          <Card label="Bot Status" value={state?.status?.toUpperCase() || "..."} tone={state?.status} />
+          <Card label="Mode" value={effectiveMode.toUpperCase()} tone={effectiveMode === "live" ? "live" : "paper"} />
           <Card label="Balance" value={`$${(state?.balance ?? 0).toFixed(2)}`} />
           <Card label="Open Positions" value={`${state?.openPositions?.length ?? 0}`} />
         </section>
@@ -113,7 +139,10 @@ export default function TradingPage() {
                   <p><b>{p.strategy}</b> · {p.symbol} · {p.side.toUpperCase()}</p>
                   <p>Entry ${p.entry} · SL ${p.sl} · TP ${p.tp}</p>
                   <p>Size ${p.size}</p>
-                  <p className="text-xs text-slate-500">Reason: {p.reason || "n/a"}</p>
+                  <p className="text-xs text-slate-500">Open reason: {p.reason || "n/a"}</p>
+                  <p className={`text-xs ${!p.unrealizedPnl ? "text-slate-500" : p.unrealizedPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    Unrealized: {p.unrealizedPnl == null ? "n/a" : `$${p.unrealizedPnl.toFixed(2)} (${(p.unrealizedPnlPct ?? 0).toFixed(2)}%)`}
+                  </p>
                 </div>
               ))}
               {(!state || state.openPositions.length === 0) && <p className="text-slate-500">No open positions.</p>}
@@ -134,14 +163,36 @@ export default function TradingPage() {
             </div>
           </div>
         </section>
+
+        <section className="glass rounded-2xl p-4">
+          <h2 className="mb-3 font-bold">Recent Event Timeline</h2>
+          <div className="max-h-72 space-y-2 overflow-auto text-sm">
+            {(state?.lastEvents || []).map((e, i) => (
+              <div key={`${e.time}-${i}`} className="rounded border p-3">
+                <p><b>{e.time}</b> · <span className="uppercase text-slate-600">{e.kind}</span></p>
+                <p>{e.message}</p>
+              </div>
+            ))}
+            {(!state || state.lastEvents.length === 0) && <p className="text-slate-500">No recent telemetry events.</p>}
+          </div>
+        </section>
       </div>
     </main>
   );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  const toneClass =
+    tone === "running"
+      ? "border-emerald-200"
+      : tone === "degraded" || tone === "stale"
+        ? "border-amber-200"
+        : tone === "stopped" || tone === "live"
+          ? "border-red-200"
+          : "border-slate-200";
+
   return (
-    <div className="glass rounded-2xl p-3">
+    <div className={`glass rounded-2xl border p-3 ${toneClass}`}>
       <p className="text-xs text-slate-500">{label}</p>
       <p className="text-xl font-bold">{value}</p>
     </div>
