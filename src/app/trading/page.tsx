@@ -138,6 +138,14 @@ export default function TradingPage() {
     monitor: { apiKey: "", apiSecret: "", keyLabel: "", accountType: "UNIFIED", testnet: true, ipWhitelistNote: "", confirm: "" },
     execution: { apiKey: "", apiSecret: "", keyLabel: "", accountType: "UNIFIED", testnet: true, ipWhitelistNote: "", confirm: "" },
   });
+  const [currentIp, setCurrentIp] = useState<string | null>(null);
+  const [ipCheckedAt, setIpCheckedAt] = useState<string | null>(null);
+  const [expectedIp, setExpectedIp] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("trading-expected-ip") || "";
+  });
+  const [ipLoading, setIpLoading] = useState(false);
+  const [ipError, setIpError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -169,6 +177,32 @@ export default function TradingPage() {
     };
     fetchCredentialStatus();
   }, []);
+
+  const fetchPublicIp = async () => {
+    setIpLoading(true);
+    setIpError(null);
+    try {
+      const res = await fetch("/api/public-ip", { cache: "no-store" });
+      const json = (await res.json()) as { ip?: string; checkedAt?: string; error?: string };
+      if (!res.ok || !json?.ip) {
+        throw new Error(json?.error || "Failed to fetch current public IP.");
+      }
+      setCurrentIp(json.ip);
+      setIpCheckedAt(json.checkedAt || new Date().toISOString());
+    } catch (error) {
+      setIpError(error instanceof Error ? error.message : "Unable to fetch public IP.");
+    } finally {
+      setIpLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPublicIp();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("trading-expected-ip", expectedIp.trim());
+  }, [expectedIp]);
 
   const runtimeMode = state?.mode || "paper";
   const hasDemoExecutionKeys = credentialStatus?.profiles.execution.configured === true;
@@ -300,6 +334,11 @@ export default function TradingPage() {
 
   const truthOnlyTags = useMemo(() => (state?.sourceTags || []).map((tag) => ({ tag, trust: "verified" as const })), [state?.sourceTags]);
 
+  const normalizedExpectedIp = expectedIp.trim();
+  const ipMatch = !!currentIp && !!normalizedExpectedIp && currentIp === normalizedExpectedIp;
+  const ipStatusTone: "ok" | "warn" | "neutral" = !normalizedExpectedIp ? "neutral" : ipMatch ? "ok" : "warn";
+  const ipStatusLabel = !normalizedExpectedIp ? "Expected IP not set" : ipMatch ? "IP match" : "IP mismatch";
+
   return (
     <main className="min-h-screen px-4 py-6">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -336,6 +375,54 @@ export default function TradingPage() {
           <Card label="Equity" value={money(state?.equity ?? 0)} />
           <Card label="Open Positions" value={`${state?.openPositions?.length ?? 0}`} />
           <Card label="Recent Events" value={`${state?.lastEvents?.length ?? 0}`} />
+        </section>
+
+        <section className="panel p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">IP whitelist status</h2>
+            <Badge label={ipStatusLabel} tone={ipStatusTone} />
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="card p-3 text-xs">
+              <p className="font-semibold">Current public IP</p>
+              <p className="mt-1 text-lg font-semibold">{currentIp || (ipLoading ? "Checking..." : "n/a")}</p>
+              <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
+                Last checked: {ipCheckedAt ? new Date(ipCheckedAt).toLocaleString() : "n/a"}
+              </p>
+              <button
+                className="mt-2 rounded-lg border px-3 py-2 text-xs font-semibold"
+                style={{ borderColor: "var(--border)", opacity: ipLoading ? 0.7 : 1 }}
+                onClick={fetchPublicIp}
+                disabled={ipLoading}
+              >
+                {ipLoading ? "Refreshing..." : "Refresh IP"}
+              </button>
+              {ipError && <p className="mt-2" style={{ color: "var(--red)" }}>{ipError}</p>}
+            </div>
+
+            <div className="card p-3 text-xs">
+              <label className="font-semibold" htmlFor="expected-ip">Expected whitelisted IP</label>
+              <input
+                id="expected-ip"
+                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}
+                placeholder="e.g. 102.89.10.55"
+                value={expectedIp}
+                onChange={(e) => setExpectedIp(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <p className="mt-2" style={{ color: "var(--text-muted)" }}>
+                Stored locally in this browser only (non-secret). Keep this synced with your exchange API whitelist.
+              </p>
+              {normalizedExpectedIp && currentIp && !ipMatch && (
+                <div className="mt-2 rounded-lg border px-3 py-2" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.12)", color: "var(--yellow)" }}>
+                  Warning: current IP differs from expected whitelist IP. Bybit requests may be blocked until whitelist is updated.
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="panel p-4">
