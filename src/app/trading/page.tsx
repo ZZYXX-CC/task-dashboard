@@ -89,6 +89,10 @@ function money(v: number) {
   return `$${v.toFixed(2)}`;
 }
 
+function pct(v: number) {
+  return `${v.toFixed(2)}%`;
+}
+
 export default function TradingPage() {
   const [state, setState] = useState<TradingState | null>(null);
   const [tests, setTests] = useState<TradingTestsPayload | null>(null);
@@ -139,6 +143,36 @@ export default function TradingPage() {
         trades: scenario.result?.trades ?? 0,
       })),
     [tests?.scenarios],
+  );
+
+  const validationMetrics = useMemo(() => {
+    const scenarios = tests?.scenarios || [];
+    if (!scenarios.length) {
+      return { totalTrades: 0, totalPnl: 0, avgWr: 0, best: null as TestScenario | null, worst: null as TestScenario | null };
+    }
+
+    const totalTrades = scenarios.reduce((sum, s) => sum + (s.result?.trades ?? 0), 0);
+    const totalPnl = scenarios.reduce((sum, s) => sum + (s.result?.total_pnl ?? 0), 0);
+    const avgWr = scenarios.reduce((sum, s) => sum + (s.result?.win_rate ?? 0), 0) / scenarios.length;
+    const sorted = [...scenarios].sort((a, b) => (b.result?.total_pnl ?? 0) - (a.result?.total_pnl ?? 0));
+
+    return {
+      totalTrades,
+      totalPnl,
+      avgWr,
+      best: sorted[0] || null,
+      worst: sorted[sorted.length - 1] || null,
+    };
+  }, [tests?.scenarios]);
+
+  const reportSummaryLines = useMemo(
+    () =>
+      (tests?.reportSnippet || "")
+        .split("\n")
+        .map((line) => line.replace(/^[-#\s]+/, "").trim())
+        .filter(Boolean)
+        .slice(0, 4),
+    [tests?.reportSnippet],
   );
 
   const guardedSwitchRequest = (next: "paper" | "live") => {
@@ -225,56 +259,83 @@ export default function TradingPage() {
 
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <Badge label={`Generated ${tests?.generatedAtUtc ? new Date(tests.generatedAtUtc).toLocaleString() : "n/a"}`} tone="neutral" />
-            <Badge label="Source: pre_demo_validation_output.json" tone="neutral" />
-            <Badge label="Source: pre_demo_validation_report.md" tone="neutral" />
+            <Badge label={`Scenarios ${(tests?.scenarios || []).length}`} tone="neutral" />
+            <Badge label="Validation snapshots loaded" tone="neutral" />
           </div>
 
           {tests?.recommendation?.note && (
             <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>{tests.recommendation.note}</p>
           )}
 
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <Card label="Total Scenario Trades" value={`${validationMetrics.totalTrades}`} />
+            <Card label="Net Scenario PnL" value={money(validationMetrics.totalPnl)} />
+            <Card label="Average Win Rate" value={pct(validationMetrics.avgWr)} />
+            <Card label="Best Scenario" value={`${validationMetrics.best?.symbol || "n/a"} ${validationMetrics.best?.timeframe || ""}`.trim()} />
+          </div>
+
+          <div className="mt-3 card p-3 text-xs">
+            <p className="font-semibold">Report summary</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4" style={{ color: "var(--text-secondary)" }}>
+              {reportSummaryLines.map((line, idx) => <li key={`summary-${idx}`}>{line}</li>)}
+              {reportSummaryLines.length === 0 && <li>No report summary found.</li>}
+            </ul>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>Show report excerpt</summary>
+              <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded border p-2 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                {tests?.reportSnippet || "No report excerpt available."}
+              </pre>
+            </details>
+          </div>
+
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {testSummaryCards.map((item) => (
               <div key={item.id} className="card p-3 text-xs">
                 <p className="font-semibold">{item.symbol} · {item.timeframe}</p>
                 <p className="mt-1" style={{ color: item.pnl >= 0 ? "var(--green)" : "var(--red)" }}>PnL {money(item.pnl)}</p>
-                <p style={{ color: "var(--text-secondary)" }}>WR {item.wr.toFixed(2)}% · Trades {item.trades}</p>
+                <p style={{ color: "var(--text-secondary)" }}>WR {pct(item.wr)} · Trades {item.trades}</p>
               </div>
             ))}
             {testSummaryCards.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No validation snapshots found.</p>}
           </div>
 
-          <div className="mt-4 rounded-lg border" style={{ borderColor: "var(--border)" }}>
-            <div className="hidden grid-cols-[1.3fr_0.8fr_0.5fr_0.6fr_0.8fr] gap-2 border-b p-2 text-xs font-semibold md:grid" style={{ borderColor: "var(--border)" }}>
-              <span>Scenario</span><span>Window</span><span>Trades</span><span>WR</span><span>PnL</span>
-            </div>
-            <div className="max-h-[420px] overflow-auto">
-              {(tests?.scenarios || []).map((s, i) => (
-                <details key={`${s.symbol}-${s.timeframe}-${i}`} className="border-b p-2 text-xs" style={{ borderColor: "var(--border)" }}>
-                  <summary className="cursor-pointer list-none">
-                    <div className="grid gap-1 md:grid-cols-[1.3fr_0.8fr_0.5fr_0.6fr_0.8fr] md:items-center">
-                      <span className="font-semibold">{s.symbol || "n/a"} · {s.timeframe || "n/a"}</span>
-                      <span style={{ color: "var(--text-secondary)" }}>{s.start || "?"} → {s.end || "?"}</span>
-                      <span>{s.result?.trades ?? 0}</span>
-                      <span>{(s.result?.win_rate ?? 0).toFixed(2)}%</span>
-                      <span style={{ color: (s.result?.total_pnl ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{money(s.result?.total_pnl ?? 0)}</span>
-                    </div>
-                  </summary>
-                  <div className="mt-2 space-y-1 pl-1" style={{ color: "var(--text-secondary)" }}>
-                    <p>Final balance: {money(s.result?.final_balance ?? 0)} · Strategy: {s.result?.strategy || "n/a"}</p>
-                    <p>Regime trend: trades {s.result?.regime?.trend?.trades ?? 0}, WR {(s.result?.regime?.trend?.win_rate ?? 0).toFixed(2)}%, pnl {money(s.result?.regime?.trend?.pnl ?? 0)}</p>
-                    <p>Regime range: trades {s.result?.regime?.range?.trades ?? 0}, WR {(s.result?.regime?.range?.win_rate ?? 0).toFixed(2)}%, pnl {money(s.result?.regime?.range?.pnl ?? 0)}</p>
-                    <p>Risk proxy: max DD {(s.risk?.max_drawdown_proxy_pct ?? 0).toFixed(2)}% · trades/day {(s.risk?.trade_frequency_per_day ?? 0).toFixed(2)}</p>
+          <div className="mt-4 space-y-2">
+            {(tests?.scenarios || []).map((s, i) => {
+              const diagnostic = s.risk?.diagnostic_note?.trim() || "";
+              const longDiagnostic = diagnostic.length > 160;
+              return (
+                <article key={`${s.symbol}-${s.timeframe}-${i}`} className="card p-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold">{s.symbol || "n/a"} · {s.timeframe || "n/a"}</p>
+                    <p style={{ color: "var(--text-secondary)" }}>{s.start || "?"} → {s.end || "?"}</p>
                   </div>
-                </details>
-              ))}
-            </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <p>Trades <b>{s.result?.trades ?? 0}</b></p>
+                    <p>Win rate <b>{pct(s.result?.win_rate ?? 0)}</b></p>
+                    <p>PnL <b style={{ color: (s.result?.total_pnl ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{money(s.result?.total_pnl ?? 0)}</b></p>
+                    <p>Final balance <b>{money(s.result?.final_balance ?? 0)}</b></p>
+                  </div>
+                  <div className="mt-2 space-y-1" style={{ color: "var(--text-secondary)" }}>
+                    <p>Strategy: {s.result?.strategy || "n/a"}</p>
+                    <p>Trend regime: trades {s.result?.regime?.trend?.trades ?? 0}, WR {pct(s.result?.regime?.trend?.win_rate ?? 0)}, pnl {money(s.result?.regime?.trend?.pnl ?? 0)}</p>
+                    <p>Range regime: trades {s.result?.regime?.range?.trades ?? 0}, WR {pct(s.result?.regime?.range?.win_rate ?? 0)}, pnl {money(s.result?.regime?.range?.pnl ?? 0)}</p>
+                    <p>Risk proxy: max DD {pct(s.risk?.max_drawdown_proxy_pct ?? 0)} · trades/day {(s.risk?.trade_frequency_per_day ?? 0).toFixed(2)}</p>
+                    {!!diagnostic && !longDiagnostic && <p>Diagnostic: {diagnostic}</p>}
+                    {!!diagnostic && longDiagnostic && (
+                      <details>
+                        <summary className="cursor-pointer font-semibold" style={{ color: "var(--text-muted)" }}>Diagnostic note (expand)</summary>
+                        <p className="mt-1">{diagnostic}</p>
+                      </details>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <button className="rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)" }} onClick={() => navigator.clipboard.writeText(tests?.sources?.json || "")}>Copy JSON path</button>
-            <button className="rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)" }} onClick={() => navigator.clipboard.writeText(tests?.sources?.report || "")}>Copy report path</button>
-          </div>
+          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Validation data is rendered directly in this panel for quick review. Source files remain server-side.
+          </p>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
