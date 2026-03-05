@@ -38,10 +38,18 @@ type TradingState = {
   freshnessTs: string | null;
   stale: boolean;
   staleSeconds: number | null;
+  wsConnected?: boolean | null;
+  statusReason?: string | null;
   sourceTags: string[];
   openPositions: Position[];
   history: Trade[];
   lastEvents: EventItem[];
+};
+
+type ToastItem = {
+  id: number;
+  kind: "success" | "error";
+  text: string;
 };
 
 type TestScenario = {
@@ -146,6 +154,7 @@ export default function TradingPage() {
   });
   const [ipLoading, setIpLoading] = useState(false);
   const [ipError, setIpError] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -282,7 +291,9 @@ export default function TradingPage() {
     setStatusNote("");
 
     if (!bridgeToken.trim()) {
-      setStatusNote("Bridge token is required to store credentials.");
+      const msg = "Bridge token is required to store credentials.";
+      setStatusNote(msg);
+      pushToast("error", msg);
       return;
     }
 
@@ -309,7 +320,9 @@ export default function TradingPage() {
 
     const json = await res.json();
     if (!res.ok) {
-      setStatusNote(json?.error || "Failed to store credentials.");
+      const reason = json?.error || "Failed to store credentials.";
+      setStatusNote(reason);
+      pushToast("error", `Save failed (${profile === "monitor" ? "Monitor" : "Demo Execution"}): ${reason}`);
       return;
     }
 
@@ -319,7 +332,9 @@ export default function TradingPage() {
       [profile]: { ...prev[profile], apiKey: "", apiSecret: "", confirm: "" },
     }));
     setBridgeToken("");
-    setStatusNote(`${profile === "monitor" ? "Monitor" : "Demo Execution"} credentials stored in host encrypted bridge storage.`);
+    const okMsg = `${profile === "monitor" ? "Monitor" : "Demo Execution"} credentials stored in host encrypted bridge storage.`;
+    setStatusNote(okMsg);
+    pushToast("success", okMsg);
   };
 
   const setFormField = <K extends keyof (typeof forms)["monitor"]>(profile: "monitor" | "execution", field: K, value: (typeof forms)["monitor"][K]) => {
@@ -332,6 +347,14 @@ export default function TradingPage() {
     }));
   };
 
+  const pushToast = (kind: "success" | "error", text: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev) => [...prev, { id, kind, text }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  };
+
   const truthOnlyTags = useMemo(() => (state?.sourceTags || []).map((tag) => ({ tag, trust: "verified" as const })), [state?.sourceTags]);
 
   const normalizedExpectedIp = expectedIp.trim();
@@ -339,8 +362,40 @@ export default function TradingPage() {
   const ipStatusTone: "ok" | "warn" | "neutral" = !normalizedExpectedIp ? "neutral" : ipMatch ? "ok" : "warn";
   const ipStatusLabel = !normalizedExpectedIp ? "Expected IP not set" : ipMatch ? "IP match" : "IP mismatch";
 
+  const bybitConnectivity = useMemo(() => {
+    if (!state || !state.freshnessTs) {
+      return { label: "Unknown", tone: "neutral" as const, reason: "No telemetry heartbeat yet." };
+    }
+    if (state.stale) {
+      return { label: "Offline", tone: "danger" as const, reason: `Telemetry stale for ${state.staleSeconds ?? "?"}s.` };
+    }
+    if (state.wsConnected === true) {
+      return { label: "Connected", tone: "ok" as const, reason: "Fresh telemetry + websocket connected." };
+    }
+    if (state.wsConnected === false) {
+      return { label: "Offline", tone: "danger" as const, reason: "Fresh telemetry but websocket disconnected." };
+    }
+    return { label: "Unknown", tone: "warn" as const, reason: state.statusReason || "Fresh telemetry but websocket state unavailable." };
+  }, [state]);
+
   return (
     <main className="min-h-screen px-4 py-6">
+      <div className="fixed right-4 top-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="max-w-[90vw] rounded-lg border px-3 py-2 text-xs shadow-lg sm:max-w-sm"
+            style={{
+              borderColor: toast.kind === "success" ? "rgba(34,197,94,.4)" : "rgba(239,68,68,.4)",
+              background: toast.kind === "success" ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
+              color: toast.kind === "success" ? "#86efac" : "#fecaca",
+            }}
+          >
+            <p className="font-semibold">{toast.kind === "success" ? "Saved" : "Save failed"}</p>
+            <p>{toast.text}</p>
+          </div>
+        ))}
+      </div>
       <div className="mx-auto max-w-7xl space-y-4">
         <header className="panel p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -377,51 +432,69 @@ export default function TradingPage() {
           <Card label="Recent Events" value={`${state?.lastEvents?.length ?? 0}`} />
         </section>
 
-        <section className="panel p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">IP whitelist status</h2>
-            <Badge label={ipStatusLabel} tone={ipStatusTone} />
-          </div>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="card p-3 text-xs">
-              <p className="font-semibold">Current public IP</p>
-              <p className="mt-1 text-lg font-semibold">{currentIp || (ipLoading ? "Checking..." : "n/a")}</p>
-              <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-                Last checked: {ipCheckedAt ? new Date(ipCheckedAt).toLocaleString() : "n/a"}
-              </p>
+        <section className="grid gap-3 lg:grid-cols-2">
+          <div className="panel p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">IP Status</h2>
+              <Badge label={ipStatusLabel} tone={ipStatusTone} />
+            </div>
+            <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div className="card p-3">
+                <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>Current IP</p>
+                <p className="mt-1 break-all text-lg font-semibold">{currentIp || (ipLoading ? "Checking..." : "n/a")}</p>
+              </div>
+              <div className="card p-3">
+                <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>Expected IP</p>
+                <p className="mt-1 break-all text-lg font-semibold">{normalizedExpectedIp || "Not set"}</p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Last checked: {ipCheckedAt ? new Date(ipCheckedAt).toLocaleString() : "n/a"}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
-                className="mt-2 rounded-lg border px-3 py-2 text-xs font-semibold"
+                className="rounded-lg border px-3 py-2 text-xs font-semibold"
                 style={{ borderColor: "var(--border)", opacity: ipLoading ? 0.7 : 1 }}
                 onClick={fetchPublicIp}
                 disabled={ipLoading}
               >
                 {ipLoading ? "Refreshing..." : "Refresh IP"}
               </button>
-              {ipError && <p className="mt-2" style={{ color: "var(--red)" }}>{ipError}</p>}
-            </div>
-
-            <div className="card p-3 text-xs">
-              <label className="font-semibold" htmlFor="expected-ip">Expected whitelisted IP</label>
               <input
                 id="expected-ip"
-                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                className="w-full min-w-[220px] flex-1 rounded-lg border px-3 py-2 text-sm"
                 style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}
-                placeholder="e.g. 102.89.10.55"
+                placeholder="Set expected whitelist IP"
                 value={expectedIp}
                 onChange={(e) => setExpectedIp(e.target.value)}
                 autoComplete="off"
                 spellCheck={false}
               />
-              <p className="mt-2" style={{ color: "var(--text-muted)" }}>
-                Stored locally in this browser only (non-secret). Keep this synced with your exchange API whitelist.
-              </p>
-              {normalizedExpectedIp && currentIp && !ipMatch && (
-                <div className="mt-2 rounded-lg border px-3 py-2" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.12)", color: "var(--yellow)" }}>
-                  Warning: current IP differs from expected whitelist IP. Bybit requests may be blocked until whitelist is updated.
-                </div>
-              )}
             </div>
+            {ipError && <p className="mt-2 text-xs" style={{ color: "var(--red)" }}>{ipError}</p>}
+            {normalizedExpectedIp && currentIp && !ipMatch && (
+              <div className="mt-2 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.12)", color: "var(--yellow)" }}>
+                Warning: current IP differs from expected whitelist IP. Bybit requests may be blocked until whitelist is updated.
+              </div>
+            )}
+          </div>
+
+          <div className="panel p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Bybit Connectivity</h2>
+              <Badge label={bybitConnectivity.label} tone={bybitConnectivity.tone} />
+            </div>
+            <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div className="card p-3">
+                <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>Telemetry freshness</p>
+                <p className="mt-1 font-semibold">{state?.freshnessTs ? new Date(state.freshnessTs).toLocaleString() : "n/a"}</p>
+              </div>
+              <div className="card p-3">
+                <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>WebSocket</p>
+                <p className="mt-1 font-semibold">{state?.wsConnected === true ? "Connected" : state?.wsConnected === false ? "Disconnected" : "Unknown"}</p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>{bybitConnectivity.reason}</p>
           </div>
         </section>
 

@@ -54,6 +54,8 @@ const FALLBACK = {
   freshnessTs: null,
   stale: true,
   staleSeconds: null,
+  wsConnected: null,
+  statusReason: "Telemetry source unavailable",
   sourceTags: ["fallback", "paper"],
   openPositions: [
     {
@@ -143,6 +145,8 @@ export async function GET() {
       freshnessTs,
       stale,
       staleSeconds,
+      wsConnected: raw.status?.ws_connected ?? null,
+      statusReason: raw.status?.reason || null,
       sourceTags,
       openPositions,
       history,
