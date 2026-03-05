@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type Position = {
   strategy: string;
@@ -27,7 +28,6 @@ type EventItem = {
   time: string;
   kind: string;
   message: string;
-  data?: Record<string, unknown>;
 };
 
 type TradingState = {
@@ -48,8 +48,7 @@ export default function TradingPage() {
   const [state, setState] = useState<TradingState | null>(null);
   const [mode, setMode] = useState<"paper" | "live">(() => {
     if (typeof window === "undefined") return "paper";
-    const saved = localStorage.getItem("trading-mode");
-    return saved === "live" ? "live" : "paper";
+    return (localStorage.getItem("trading-mode") as "paper" | "live") || "paper";
   });
   const [apiKey, setApiKey] = useState(() => (typeof window === "undefined" ? "" : localStorage.getItem("bybit-api-key") || ""));
   const [apiSecret, setApiSecret] = useState(() => (typeof window === "undefined" ? "" : localStorage.getItem("bybit-api-secret") || ""));
@@ -66,12 +65,11 @@ export default function TradingPage() {
   }, []);
 
   const maskedKey = useMemo(() => (apiKey ? `${apiKey.slice(0, 6)}***${apiKey.slice(-4)}` : "Not set"), [apiKey]);
-  const maskedSecret = useMemo(() => (apiSecret ? `${apiSecret.slice(0, 4)}***${apiSecret.slice(-3)}` : "Not set"), [apiSecret]);
 
   const saveKeys = () => {
     localStorage.setItem("bybit-api-key", apiKey);
     localStorage.setItem("bybit-api-secret", apiSecret);
-    alert("Saved locally for now. Server-side secure storage will be added next.");
+    alert("Saved locally.");
   };
 
   const switchMode = (m: "paper" | "live") => {
@@ -82,98 +80,82 @@ export default function TradingPage() {
   const effectiveMode = state?.mode || mode;
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 text-slate-900">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <header className="glass rounded-2xl p-4">
-          <h1 className="text-2xl font-bold">Trading Bot Control Panel</h1>
-          <p className="text-sm text-slate-600">History, balance, status, open positions, and mode/settings in one place.</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {(state?.sourceTags || []).map((tag) => (
-              <span key={tag} className="rounded-full border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700">#{tag}</span>
-            ))}
+    <main className="min-h-screen px-4 py-6">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <header className="panel p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Trading Integration</p>
+              <h1 className="text-2xl font-semibold">/trading Control Surface</h1>
+            </div>
+            <Link href="/" className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{ borderColor: "var(--border)" }}>Back to dashboard</Link>
           </div>
-          <p className="mt-2 text-xs text-slate-600">
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
             Freshness: {state?.freshnessTs ? new Date(state.freshnessTs).toLocaleString() : "n/a"}
-            {state?.stale ? ` · stale (${state?.staleSeconds ?? "?"}s)` : " · healthy"}
+            {state?.stale ? ` · stale (${state.staleSeconds ?? "?"}s)` : " · healthy"}
           </p>
-          {state?.stale && <p className="mt-1 text-sm font-semibold text-amber-700">⚠️ Telemetry stale: no fresh snapshot in &gt;60s.</p>}
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card label="Bot Status" value={state?.status?.toUpperCase() || "..."} tone={state?.status} />
-          <Card label="Mode" value={effectiveMode.toUpperCase()} tone={effectiveMode === "live" ? "live" : "paper"} />
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card label="Status" value={state?.status?.toUpperCase() || "..."} />
+          <Card label="Mode" value={effectiveMode.toUpperCase()} />
           <Card label="Balance" value={`$${(state?.balance ?? 0).toFixed(2)}`} />
           <Card label="Open Positions" value={`${state?.openPositions?.length ?? 0}`} />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <div className="glass rounded-2xl p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold">Mode Switch</h2>
-              <span className="text-xs text-slate-500">Default is Paper</span>
+          <div className="panel p-4">
+            <h2 className="text-sm font-semibold">Mode and credentials</h2>
+            <div className="mt-2 inline-flex rounded-lg border p-1" style={{ borderColor: "var(--border)" }}>
+              <button className="rounded px-3 py-1 text-sm" style={{ background: mode === "paper" ? "var(--accent)" : "transparent", color: mode === "paper" ? "white" : "var(--text-secondary)" }} onClick={() => switchMode("paper")}>Paper</button>
+              <button className="rounded px-3 py-1 text-sm" style={{ background: mode === "live" ? "var(--red)" : "transparent", color: mode === "live" ? "white" : "var(--text-secondary)" }} onClick={() => switchMode("live")}>Live</button>
             </div>
-            <div className="inline-flex rounded-lg border p-1">
-              <button className={`rounded px-3 py-1 text-sm ${mode === "paper" ? "bg-[#4a94c4] text-white" : ""}`} onClick={() => switchMode("paper")}>Paper</button>
-              <button className={`rounded px-3 py-1 text-sm ${mode === "live" ? "bg-red-600 text-white" : ""}`} onClick={() => switchMode("live")}>Live</button>
+            <div className="mt-3 space-y-2">
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Bybit API key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Bybit API secret" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} />
+              <button className="rounded-lg px-3 py-2 text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }} onClick={saveKeys}>Save keys</button>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Stored key: {maskedKey}</p>
             </div>
-            {mode === "live" && <p className="mt-2 text-xs text-red-600">Live mode selected. Ensure risk limits and keys are valid before enabling execution.</p>}
           </div>
 
-          <div className="glass rounded-2xl p-4">
-            <h2 className="mb-3 font-bold">Bybit API Settings</h2>
-            <div className="space-y-2">
-              <input className="w-full rounded border p-2 text-sm" placeholder="Bybit API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-              <input className="w-full rounded border p-2 text-sm" placeholder="Bybit API Secret" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} />
-              <button className="rounded bg-[#4a94c4] px-3 py-2 text-sm font-semibold text-white" onClick={saveKeys}>Save Keys</button>
-              <p className="text-xs text-slate-500">Stored: key {maskedKey} | secret {maskedSecret}</p>
+          <div className="panel p-4">
+            <h2 className="text-sm font-semibold">Recent events</h2>
+            <div className="mt-2 max-h-[260px] space-y-2 overflow-auto">
+              {(state?.lastEvents || []).map((e, i) => (
+                <div key={`${e.time}-${i}`} className="card p-2 text-xs">
+                  <p><b>{e.time}</b> · {e.kind.toUpperCase()}</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{e.message}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <div className="glass rounded-2xl p-4">
-            <h2 className="mb-3 font-bold">Open Positions</h2>
-            <div className="space-y-2 text-sm">
+          <div className="panel p-4">
+            <h2 className="mb-2 text-sm font-semibold">Open positions</h2>
+            <div className="space-y-2 text-xs">
               {(state?.openPositions || []).map((p, i) => (
-                <div key={i} className="rounded border p-3">
+                <div key={i} className="card p-2">
                   <p><b>{p.strategy}</b> · {p.symbol} · {p.side.toUpperCase()}</p>
                   <p>Entry ${p.entry} · SL ${p.sl} · TP ${p.tp}</p>
-                  <p>Size ${p.size}</p>
-                  <p className="text-xs text-slate-500">Open reason: {p.reason || "n/a"}</p>
-                  <p className={`text-xs ${!p.unrealizedPnl ? "text-slate-500" : p.unrealizedPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    Unrealized: {p.unrealizedPnl == null ? "n/a" : `$${p.unrealizedPnl.toFixed(2)} (${(p.unrealizedPnlPct ?? 0).toFixed(2)}%)`}
-                  </p>
+                  <p style={{ color: "var(--text-secondary)" }}>Reason: {p.reason}</p>
                 </div>
               ))}
-              {(!state || state.openPositions.length === 0) && <p className="text-slate-500">No open positions.</p>}
             </div>
           </div>
 
-          <div className="glass rounded-2xl p-4">
-            <h2 className="mb-3 font-bold">Trade History (latest)</h2>
-            <div className="max-h-80 space-y-2 overflow-auto text-sm">
+          <div className="panel p-4">
+            <h2 className="mb-2 text-sm font-semibold">Trade history</h2>
+            <div className="space-y-2 text-xs">
               {(state?.history || []).map((t, i) => (
-                <div key={i} className="rounded border p-3">
+                <div key={i} className="card p-2">
                   <p><b>{t.time}</b> · {t.strategy} · {t.side.toUpperCase()}</p>
-                  <p className={t.pnl >= 0 ? "text-emerald-600" : "text-red-600"}>PnL ${t.pnl}</p>
-                  <p className="text-xs text-slate-500">{t.reason}</p>
+                  <p style={{ color: t.pnl >= 0 ? "var(--green)" : "var(--red)" }}>PnL ${t.pnl}</p>
+                  <p style={{ color: "var(--text-secondary)" }}>{t.reason}</p>
                 </div>
               ))}
-              {(!state || state.history.length === 0) && <p className="text-slate-500">No trades yet.</p>}
             </div>
-          </div>
-        </section>
-
-        <section className="glass rounded-2xl p-4">
-          <h2 className="mb-3 font-bold">Recent Event Timeline</h2>
-          <div className="max-h-72 space-y-2 overflow-auto text-sm">
-            {(state?.lastEvents || []).map((e, i) => (
-              <div key={`${e.time}-${i}`} className="rounded border p-3">
-                <p><b>{e.time}</b> · <span className="uppercase text-slate-600">{e.kind}</span></p>
-                <p>{e.message}</p>
-              </div>
-            ))}
-            {(!state || state.lastEvents.length === 0) && <p className="text-slate-500">No recent telemetry events.</p>}
           </div>
         </section>
       </div>
@@ -181,20 +163,11 @@ export default function TradingPage() {
   );
 }
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  const toneClass =
-    tone === "running"
-      ? "border-emerald-200"
-      : tone === "degraded" || tone === "stale"
-        ? "border-amber-200"
-        : tone === "stopped" || tone === "live"
-          ? "border-red-200"
-          : "border-slate-200";
-
+function Card({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`glass rounded-2xl border p-3 ${toneClass}`}>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="text-xl font-bold">{value}</p>
+    <div className="card p-3">
+      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{label}</p>
+      <p className="mt-1 text-xl font-semibold">{value}</p>
     </div>
   );
 }
