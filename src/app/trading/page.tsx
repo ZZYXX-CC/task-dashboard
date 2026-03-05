@@ -76,7 +76,15 @@ type TradingTestsPayload = {
   };
   scenarios: TestScenario[];
   reportSnippet: string;
-  sources: { json: string; report: string };
+  sourceType?: string;
+  sourceTags?: string[];
+  freshness?: {
+    generatedAtUtc?: string | null;
+    snapshotSyncedAtUtc?: string | null;
+    snapshotSourceJsonMtimeUtc?: string | null;
+    snapshotSourceReportMtimeUtc?: string | null;
+  };
+  sources: { json: string; report: string; snapshot?: string };
 };
 
 type CredentialStatus = {
@@ -304,7 +312,8 @@ export default function TradingPage() {
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <Badge label={`Generated ${tests?.generatedAtUtc ? new Date(tests.generatedAtUtc).toLocaleString() : "n/a"}`} tone="neutral" />
             <Badge label={`Scenarios ${(tests?.scenarios || []).length}`} tone="neutral" />
-            <Badge label="Validation snapshots loaded" tone="neutral" />
+            <Badge label={`Source ${(tests?.sourceType || "unknown").replace(/-/g, " ")}`} tone={tests?.sourceType === "host-reference-files" ? "ok" : "warn"} />
+            {!!tests?.freshness?.snapshotSyncedAtUtc && <Badge label={`Snapshot synced ${new Date(tests.freshness.snapshotSyncedAtUtc).toLocaleString()}`} tone="warn" />}
           </div>
 
           {tests?.recommendation?.note && (
@@ -378,7 +387,7 @@ export default function TradingPage() {
           </div>
 
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            Validation data is rendered directly in this panel for quick review. Source files remain server-side.
+            Validation data is rendered directly in this panel for quick review. Source labels are truth-based: host runtime refs when available, otherwise bundled repo snapshot.
           </p>
         </section>
 

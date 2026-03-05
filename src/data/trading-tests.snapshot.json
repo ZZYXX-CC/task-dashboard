@@ -1,0 +1,698 @@
+{
+  "schemaVersion": 1,
+  "source": "bybit-futures/reference-sync",
+  "syncedAtUtc": "2026-03-05T13:53:25.242Z",
+  "sourceFiles": {
+    "json": {
+      "path": "skills/bybit-futures/references/pre_demo_validation_output.json",
+      "mtimeUtc": "2026-03-05T12:23:58.114Z"
+    },
+    "report": {
+      "path": "skills/bybit-futures/references/pre_demo_validation_report.md",
+      "mtimeUtc": "2026-03-05T12:24:37.180Z"
+    }
+  },
+  "generatedAtUtc": "2026-03-05T12:22:29.653688+00:00",
+  "recommendation": {
+    "demo_go": true,
+    "criteria": {
+      "sol_1h_positive_pnl": true,
+      "walkfwd_forward_not_collapse": true,
+      "multi_symbol_non_negative_majority": true,
+      "multi_tf_has_at_least_two_profitable": true
+    },
+    "note": "GO only for demo-sandbox with strict risk caps and monitoring; no live trading implied.",
+    "uncertainties": [
+      "Backtest engine returns sample_trades tail only, limiting full-fidelity risk diagnostics.",
+      "Single exchange historical feed may include survivorship and execution bias.",
+      "No slippage/funding/latency model in current backtest implementation."
+    ]
+  },
+  "scenarios": [
+    {
+      "symbol": "SOL/USDT:USDT",
+      "timeframe": "15m",
+      "candles": 1000,
+      "start": "2026-02-23 02:30 UTC",
+      "end": "2026-03-05 12:15 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 5,
+        "wins": 3,
+        "win_rate": 60,
+        "total_pnl": 5.37,
+        "final_balance": 1004.4,
+        "regime": {
+          "trend": {
+            "trades": 4,
+            "win_rate": 75,
+            "pnl": 9.56
+          },
+          "range": {
+            "trades": 1,
+            "win_rate": 0,
+            "pnl": -4.19
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 91,
+            "exit_index": 91,
+            "side": "short",
+            "entry": 77.82,
+            "exit": 77.14,
+            "pnl": 1.220717039321497,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 210,
+            "exit_index": 210,
+            "side": "long",
+            "entry": 81.84,
+            "exit": 86.75040000000001,
+            "pnl": 8.920074688820371,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 447,
+            "exit_index": 447,
+            "side": "long",
+            "entry": 81.72,
+            "exit": 81.43,
+            "pnl": -4.190026831127435,
+            "entry_reason": "RSI reclaim oversold (34.7->35.1) | ctx=neutral | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "Context Flip Bearish",
+            "entry_regime": "range"
+          },
+          {
+            "entry_index": 744,
+            "exit_index": 744,
+            "side": "long",
+            "entry": 87.81,
+            "exit": 86.46,
+            "pnl": -2.4084906623751934,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 913,
+            "exit_index": 913,
+            "side": "long",
+            "entry": 90.14,
+            "exit": 91.29,
+            "pnl": 1.8285512827458394,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0.65,
+        "loss_streak_distribution_proxy": {
+          "2": 1
+        },
+        "trade_frequency_per_day": 0.48,
+        "equity_points_proxy": [
+          1000,
+          1001.22,
+          1010.14,
+          1005.95,
+          1003.54,
+          1005.37
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    },
+    {
+      "symbol": "SOL/USDT:USDT",
+      "timeframe": "1h",
+      "candles": 1000,
+      "start": "2026-01-22 21:00 UTC",
+      "end": "2026-03-05 12:00 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 3,
+        "wins": 3,
+        "win_rate": 100,
+        "total_pnl": 3.66,
+        "final_balance": 1003.39,
+        "regime": {
+          "trend": {
+            "trades": 3,
+            "win_rate": 100,
+            "pnl": 3.66
+          },
+          "range": {
+            "trades": 0,
+            "win_rate": 0,
+            "pnl": 0
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 232,
+            "exit_index": 232,
+            "side": "short",
+            "entry": 104.39,
+            "exit": 103.25,
+            "pnl": 1.548087939457803,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 375,
+            "exit_index": 375,
+            "side": "long",
+            "entry": 86.17,
+            "exit": 86.85,
+            "pnl": 1.095301346877413,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 993,
+            "exit_index": 993,
+            "side": "long",
+            "entry": 90.82,
+            "exit": 91.49,
+            "pnl": 1.0190885626090467,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "End of Backtest",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0,
+        "loss_streak_distribution_proxy": {},
+        "trade_frequency_per_day": 0.07,
+        "equity_points_proxy": [
+          1000,
+          1001.55,
+          1002.64,
+          1003.66
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    },
+    {
+      "symbol": "SOL/USDT:USDT",
+      "timeframe": "4h",
+      "candles": 1000,
+      "start": "2025-09-20 00:00 UTC",
+      "end": "2026-03-05 12:00 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 12,
+        "wins": 4,
+        "win_rate": 33.33,
+        "total_pnl": 1.73,
+        "final_balance": 1000.15,
+        "regime": {
+          "trend": {
+            "trades": 11,
+            "win_rate": 27.27,
+            "pnl": -1.46
+          },
+          "range": {
+            "trades": 1,
+            "win_rate": 100,
+            "pnl": 3.19
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 555,
+            "exit_index": 555,
+            "side": "short",
+            "entry": 124.99,
+            "exit": 125.96,
+            "pnl": -1.2397705916415434,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 612,
+            "exit_index": 612,
+            "side": "long",
+            "entry": 125.74,
+            "exit": 133.2844,
+            "pnl": 8.796403073199665,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 664,
+            "exit_index": 664,
+            "side": "long",
+            "entry": 137.47,
+            "exit": 136.08,
+            "pnl": -1.6002005749656214,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 712,
+            "exit_index": 712,
+            "side": "long",
+            "entry": 144.12,
+            "exit": 142.05,
+            "pnl": -2.2315901685919552,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 786,
+            "exit_index": 786,
+            "side": "short",
+            "entry": 122.97,
+            "exit": 115.59179999999999,
+            "pnl": 8.838250130137627,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 841,
+            "exit_index": 841,
+            "side": "short",
+            "entry": 85.25,
+            "exit": 87.8075,
+            "pnl": -4.593195740510686,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Stop Loss",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 851,
+            "exit_index": 851,
+            "side": "short",
+            "entry": 86.9,
+            "exit": 81.686,
+            "pnl": 8.874475663922814,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 900,
+            "exit_index": 900,
+            "side": "long",
+            "entry": 86.32,
+            "exit": 83.76,
+            "pnl": -4.560338676559281,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0.45,
+        "loss_streak_distribution_proxy": {
+          "1": 3,
+          "2": 1
+        },
+        "trade_frequency_per_day": 0.07,
+        "equity_points_proxy": [
+          1000,
+          998.76,
+          1007.56,
+          1005.96,
+          1003.72,
+          1012.56,
+          1007.97,
+          1016.84,
+          1012.28
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    },
+    {
+      "symbol": "SOL/USDT:USDT",
+      "timeframe": "1h",
+      "candles": 1000,
+      "start": "2026-01-22 21:00 UTC",
+      "end": "2026-03-05 12:00 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 3,
+        "wins": 3,
+        "win_rate": 100,
+        "total_pnl": 3.66,
+        "final_balance": 1003.39,
+        "regime": {
+          "trend": {
+            "trades": 3,
+            "win_rate": 100,
+            "pnl": 3.66
+          },
+          "range": {
+            "trades": 0,
+            "win_rate": 0,
+            "pnl": 0
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 232,
+            "exit_index": 232,
+            "side": "short",
+            "entry": 104.39,
+            "exit": 103.25,
+            "pnl": 1.548087939457803,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 375,
+            "exit_index": 375,
+            "side": "long",
+            "entry": 86.17,
+            "exit": 86.85,
+            "pnl": 1.095301346877413,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 993,
+            "exit_index": 993,
+            "side": "long",
+            "entry": 90.82,
+            "exit": 91.49,
+            "pnl": 1.0190885626090467,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "End of Backtest",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0,
+        "loss_streak_distribution_proxy": {},
+        "trade_frequency_per_day": 0.07,
+        "equity_points_proxy": [
+          1000,
+          1001.55,
+          1002.64,
+          1003.66
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    },
+    {
+      "symbol": "ETH/USDT:USDT",
+      "timeframe": "1h",
+      "candles": 1000,
+      "start": "2026-01-22 21:00 UTC",
+      "end": "2026-03-05 12:00 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 7,
+        "wins": 4,
+        "win_rate": 57.14,
+        "total_pnl": 20.38,
+        "final_balance": 1019.74,
+        "regime": {
+          "trend": {
+            "trades": 7,
+            "win_rate": 57.14,
+            "pnl": 20.38
+          },
+          "range": {
+            "trades": 0,
+            "win_rate": 0,
+            "pnl": 0
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 193,
+            "exit_index": 193,
+            "side": "short",
+            "entry": 2708.43,
+            "exit": 2545.9242,
+            "pnl": 8.909999999999997,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 230,
+            "exit_index": 230,
+            "side": "short",
+            "entry": 2410.71,
+            "exit": 2266.0674,
+            "pnl": 8.988586200000007,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 289,
+            "exit_index": 289,
+            "side": "short",
+            "entry": 2235.29,
+            "exit": 2283.05,
+            "pnl": -3.353332570328357,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 301,
+            "exit_index": 301,
+            "side": "short",
+            "entry": 2259.6,
+            "exit": 2124.024,
+            "pnl": 9.03717122918465,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 375,
+            "exit_index": 375,
+            "side": "long",
+            "entry": 2040.4,
+            "exit": 2069.6,
+            "pnl": 2.104390479610212,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 831,
+            "exit_index": 831,
+            "side": "long",
+            "entry": 2069.11,
+            "exit": 2007.0367,
+            "pnl": -4.7058105318544845,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "Stop Loss",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 998,
+            "exit_index": 998,
+            "side": "long",
+            "entry": 2136.91,
+            "exit": 2129.82,
+            "pnl": -0.5996893050817337,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "End of Backtest",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0.52,
+        "loss_streak_distribution_proxy": {
+          "1": 1,
+          "2": 1
+        },
+        "trade_frequency_per_day": 0.17,
+        "equity_points_proxy": [
+          1000,
+          1008.91,
+          1017.9,
+          1014.55,
+          1023.58,
+          1025.69,
+          1020.98,
+          1020.38
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    },
+    {
+      "symbol": "BTC/USDT:USDT",
+      "timeframe": "1h",
+      "candles": 1000,
+      "start": "2026-01-22 21:00 UTC",
+      "end": "2026-03-05 12:00 UTC",
+      "params": {
+        "trend_fast": 8,
+        "trend_slow": 21,
+        "trend_pct": 0.03,
+        "range_period": 21,
+        "range_oversold": 35,
+        "range_overbought": 65,
+        "range_pct": 0.2,
+        "sl_pct": 0.03,
+        "tp_pct": 0.06
+      },
+      "result": {
+        "strategy": "RSI+EMA+SMC Regime Overlay",
+        "trades": 4,
+        "wins": 3,
+        "win_rate": 75,
+        "total_pnl": 9.63,
+        "final_balance": 1009.27,
+        "regime": {
+          "trend": {
+            "trades": 4,
+            "win_rate": 75,
+            "pnl": 9.63
+          },
+          "range": {
+            "trades": 0,
+            "win_rate": 0,
+            "pnl": 0
+          }
+        },
+        "sample_trades": [
+          {
+            "entry_index": 232,
+            "exit_index": 232,
+            "side": "short",
+            "entry": 78281.5,
+            "exit": 78178.3,
+            "pnl": 0.10774787146387801,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "EMA Golden Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 300,
+            "exit_index": 300,
+            "side": "short",
+            "entry": 76089.1,
+            "exit": 71523.754,
+            "pnl": 8.910158133534752,
+            "entry_reason": "EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}",
+            "exit_reason": "Take Profit",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 384,
+            "exit_index": 384,
+            "side": "long",
+            "entry": 69471.4,
+            "exit": 69836.4,
+            "pnl": 0.7042637822617205,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "EMA Death Cross",
+            "entry_regime": "trend"
+          },
+          {
+            "entry_index": 999,
+            "exit_index": 999,
+            "side": "long",
+            "entry": 72835.1,
+            "exit": 72835.1,
+            "pnl": -0.09085062355006995,
+            "entry_reason": "EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}",
+            "exit_reason": "End of Backtest",
+            "entry_regime": "trend"
+          }
+        ]
+      },
+      "risk": {
+        "max_drawdown_proxy_pct": 0.01,
+        "loss_streak_distribution_proxy": {
+          "1": 1
+        },
+        "trade_frequency_per_day": 0.1,
+        "equity_points_proxy": [
+          1000,
+          1000.11,
+          1009.02,
+          1009.72,
+          1009.63
+        ],
+        "diagnostic_note": "Proxy metrics derived from available sample_trades only (engine currently returns tail sample, not full trade ledger)."
+      }
+    }
+  ],
+  "reportMarkdown": "# Pre-Demo Validation Report (Bybit Futures Regime Overlay)\r\n\r\nGenerated: 2026-03-05T12:22:29.653688+00:00\r\n\r\n## Scope\r\n- Analysis-only validation for demo readiness (no live/demo order placement)\r\n- Strategy: RSI+EMA+SMC regime overlay from current config\r\n- Data source: Bybit OHLCV via ccxt\r\n\r\n## Command Snapshot\r\n```powershell\r\ncd skills/bybit-futures/scripts\r\npython pre_demo_validation.py > ../references/pre_demo_validation_output.json\r\npython build_pre_demo_report.py\r\n```\r\n\r\n## 1) SOL Multi-Timeframe Backtests (current regime overlay config)\r\n| TF | Candles | Trades | Win Rate | PnL ($) | Final Balance ($) | Trend trades/pnl | Range trades/pnl |\r\n|---|---:|---:|---:|---:|---:|---|---|\r\n| 15m | 1000 | 5 | 60.0% | 5.37 | 1004.4 | 4 / 9.56 | 1 / -4.19 |\r\n| 1h | 1000 | 3 | 100.0% | 3.66 | 1003.39 | 3 / 3.66 | 0 / 0 |\r\n| 4h | 1000 | 12 | 33.33% | 1.73 | 1000.15 | 11 / -1.46 | 1 / 3.19 |\r\n\r\n## 2) Multi-Symbol Backtests (1h)\r\n| Symbol | Candles | Trades | Win Rate | PnL ($) | Final Balance ($) |\r\n|---|---:|---:|---:|---:|---:|\r\n| SOL/USDT:USDT | 1000 | 3 | 100.0% | 3.66 | 1003.39 |\r\n| ETH/USDT:USDT | 1000 | 7 | 57.14% | 20.38 | 1019.74 |\r\n| BTC/USDT:USDT | 1000 | 4 | 75.0% | 9.63 | 1009.27 |\r\n\r\n## 3) Walk-Forward Split (SOL 1h, 70/30)\r\n- Train bars: 700 (2026-01-22 21:00 UTC -> 2026-02-21 00:00 UTC)\r\n- Forward bars: 300 (2026-02-21 01:00 UTC -> 2026-03-05 12:00 UTC)\r\n- Best light-tuned params on train: `{'trend_fast': 9, 'trend_slow': 19, 'trend_pct': 0.03, 'range_period': 21, 'range_oversold': 35, 'range_overbought': 65, 'range_pct': 0.2, 'sl_pct': 0.03, 'tp_pct': 0.06}`\r\n- Train result: trades=2, WR=100.0%, pnl=$2.66, final=$1002.48\r\n- Forward result: trades=1, WR=100.0%, pnl=$1.17, final=$1001.08\r\n\r\nTop-3 Train Candidates:\r\n| Rank | Trades | WR | PnL | Final | Params |\r\n|---:|---:|---:|---:|---:|---|\r\n| 1 | 2 | 100.0% | 2.66 | 1002.48 | `{'trend_fast': 9, 'trend_slow': 19, 'trend_pct': 0.03, 'range_period': 21, 'range_oversold': 35, 'range_overbought': 65, 'range_pct': 0.2, 'sl_pct': 0.03, 'tp_pct': 0.06}` |\r\n| 2 | 2 | 100.0% | 2.66 | 1002.48 | `{'trend_fast': 9, 'trend_slow': 19, 'trend_pct': 0.03, 'range_period': 21, 'range_oversold': 33, 'range_overbought': 65, 'range_pct': 0.2, 'sl_pct': 0.03, 'tp_pct': 0.06}` |\r\n| 3 | 2 | 100.0% | 2.66 | 1002.48 | `{'trend_fast': 9, 'trend_slow': 19, 'trend_pct': 0.03, 'range_period': 21, 'range_oversold': 35, 'range_overbought': 63, 'range_pct': 0.2, 'sl_pct': 0.03, 'tp_pct': 0.06}` |\r\n\r\n## 4) Regime Distribution (trend vs range)\r\nUsing SOL timeframe runs:\r\n- 15m: trend=4 trades (WR 75.0%, pnl 9.56), range=1 trades (WR 0.0%, pnl -4.19)\r\n- 1h: trend=3 trades (WR 100.0%, pnl 3.66), range=0 trades (WR 0%, pnl 0)\r\n- 4h: trend=11 trades (WR 27.27%, pnl -1.46), range=1 trades (WR 100.0%, pnl 3.19)\r\n\r\n## 5) Risk Diagnostics (proxy)\r\nNote: Engine currently exposes `sample_trades` tail only; diagnostics below are proxies, not full-ledger stats.\r\n| Case | Max DD Proxy % | Loss Streak Dist (proxy) | Trades/Day |\r\n|---|---:|---|---:|\r\n| SOL 15m | 0.65 | `{'2': 1}` | 0.48 |\r\n| SOL 1h | 0.0 | `{}` | 0.07 |\r\n| SOL 4h | 0.45 | `{'1': 3, '2': 1}` | 0.07 |\r\n\r\n## 6) Sensitivity Test (SOL 1h)\r\n| Param | Delta | Trades | WR | PnL | Final |\r\n|---|---:|---:|---:|---:|---:|\r\n| base | 0 | 3 | 100.0% | 3.75 | 1003.47 |\r\n| RSI thresholds | -2 | 3 | 100.0% | 3.75 | 1003.47 |\r\n| RSI thresholds | 2 | 5 | 80.0% | 54.59 | 1053.08 |\r\n| EMA lengths | -1 | 3 | 100.0% | 3.11 | 1002.84 |\r\n| EMA lengths | 1 | 3 | 100.0% | 2.24 | 1001.97 |\r\n| trend block proxy (trend_pct) | -0.001 | 3 | 100.0% | 3.62 | 1003.36 |\r\n| trend block proxy (trend_pct) | +0.001 | 3 | 100.0% | 3.87 | 1003.59 |\r\n\r\n## 7) Recommendation (GO / NO-GO for DEMO)\r\n**Recommendation:** GO (Demo only)\r\nPass criteria status:\r\n- ✅ sol_1h_positive_pnl: True\r\n- ✅ walkfwd_forward_not_collapse: True\r\n- ✅ multi_symbol_non_negative_majority: True\r\n- ✅ multi_tf_has_at_least_two_profitable: True\r\nUncertainties:\r\n- Backtest engine returns sample_trades tail only, limiting full-fidelity risk diagnostics.\r\n- Single exchange historical feed may include survivorship and execution bias.\r\n- No slippage/funding/latency model in current backtest implementation.\r\n\r\n## 8) Raw Snapshot Excerpt\r\n```json\r\n{\r\n  \"sol_1h\": {\r\n    \"strategy\": \"RSI+EMA+SMC Regime Overlay\",\r\n    \"trades\": 3,\r\n    \"wins\": 3,\r\n    \"win_rate\": 100.0,\r\n    \"total_pnl\": 3.66,\r\n    \"final_balance\": 1003.39,\r\n    \"regime\": {\r\n      \"trend\": {\r\n        \"trades\": 3,\r\n        \"win_rate\": 100.0,\r\n        \"pnl\": 3.66\r\n      },\r\n      \"range\": {\r\n        \"trades\": 0,\r\n        \"win_rate\": 0,\r\n        \"pnl\": 0\r\n      }\r\n    },\r\n    \"sample_trades\": [\r\n      {\r\n        \"entry_index\": 232,\r\n        \"exit_index\": 232,\r\n        \"side\": \"short\",\r\n        \"entry\": 104.39,\r\n        \"exit\": 103.25,\r\n        \"pnl\": 1.548087939457803,\r\n        \"entry_reason\": \"EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}\",\r\n        \"exit_reason\": \"EMA Golden Cross\",\r\n        \"entry_regime\": \"trend\"\r\n      },\r\n      {\r\n        \"entry_index\": 375,\r\n        \"exit_index\": 375,\r\n        \"side\": \"long\",\r\n        \"entry\": 86.17,\r\n        \"exit\": 86.85,\r\n        \"pnl\": 1.095301346877413,\r\n        \"entry_reason\": \"EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}\",\r\n        \"exit_reason\": \"EMA Death Cross\",\r\n        \"entry_regime\": \"trend\"\r\n      },\r\n      {\r\n        \"entry_index\": 993,\r\n        \"exit_index\": 993,\r\n        \"side\": \"long\",\r\n        \"entry\": 90.82,\r\n        \"exit\": 91.49,\r\n        \"pnl\": 1.0190885626090467,\r\n        \"entry_reason\": \"EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}\",\r\n        \"exit_reason\": \"End of Backtest\",\r\n        \"entry_regime\": \"trend\"\r\n      }\r\n    ]\r\n  },\r\n  \"walk_forward\": {\r\n    \"best_params\": {\r\n      \"trend_fast\": 9,\r\n      \"trend_slow\": 19,\r\n      \"trend_pct\": 0.03,\r\n      \"range_period\": 21,\r\n      \"range_oversold\": 35,\r\n      \"range_overbought\": 65,\r\n      \"range_pct\": 0.2,\r\n      \"sl_pct\": 0.03,\r\n      \"tp_pct\": 0.06\r\n    },\r\n    \"train\": {\r\n      \"strategy\": \"RSI+EMA+SMC Regime Overlay\",\r\n      \"trades\": 2,\r\n      \"wins\": 2,\r\n      \"win_rate\": 100.0,\r\n      \"total_pnl\": 2.66,\r\n      \"final_balance\": 1002.48,\r\n      \"regime\": {\r\n        \"trend\": {\r\n          \"trades\": 2,\r\n          \"win_rate\": 100.0,\r\n          \"pnl\": 2.66\r\n        },\r\n        \"range\": {\r\n          \"trades\": 0,\r\n          \"win_rate\": 0,\r\n          \"pnl\": 0\r\n        }\r\n      },\r\n      \"sample_trades\": [\r\n        {\r\n          \"entry_index\": 232,\r\n          \"exit_index\": 232,\r\n          \"side\": \"short\",\r\n          \"entry\": 104.39,\r\n          \"exit\": 103.24,\r\n          \"pnl\": 1.5624571319091949,\r\n          \"entry_reason\": \"EMA death cross | ctx=bearish | smc={'bos': 'none', 'zone': 'premium'}\",\r\n          \"exit_reason\": \"EMA Golden Cross\",\r\n          \"entry_regime\": \"trend\"\r\n        },\r\n        {\r\n          \"entry_index\": 375,\r\n          \"exit_index\": 375,\r\n          \"side\": \"long\",\r\n          \"entry\": 86.17,\r\n          \"exit\": 86.85,\r\n          \"pnl\": 1.0953170625584139,\r\n          \"entry_reason\": \"EMA golden cross | ctx=bullish | smc={'bos': 'none', 'zone': 'discount'}\",\r\n          \"exit_reason\": \"EMA Death Cross\",\r\n          \"entry_regime\": \"trend\"\r\n        }\r\n      ]\r\n    },\r\n    \"forward\": {\r\n      \"strategy\": \"RSI+EMA+SMC Regime Overlay\",\r\n     \r\n```"
+}
