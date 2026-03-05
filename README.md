@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Task Dashboard
 
-## Getting Started
+Next.js dashboard for task + trading telemetry.
 
-First, run the development server:
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Secure Bybit Credential Bridge
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`/trading` now uses a host-side credential bridge (no browser localStorage for API secrets).
 
-## Learn More
+### Required host env vars (local Windows host)
 
-To learn more about Next.js, take a look at the following resources:
+```powershell
+$env:TRADING_BRIDGE_TOKEN="<strong-random-token>"
+$env:BYBIT_CREDENTIALS_MASTER_KEY="<32-byte-base64-or-long-passphrase>"
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `TRADING_BRIDGE_TOKEN` authenticates bridge writes/reads.
+- `BYBIT_CREDENTIALS_MASTER_KEY` encrypts at-rest credential file in:
+  - `%APPDATA%\task-dashboard\bybit-credentials.enc.json`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Safety behavior
 
-## Deploy on Vercel
+- Bridge storage is **disabled** on Vercel/serverless (`VERCEL`, `NOW_REGION`, lambda env checks).
+- Runtime credential read endpoint is localhost-only + token-authenticated.
+- UI only shows masked key/secret + last updated timestamp.
+- Saving requires explicit confirmation text: `STORE LIVE KEYS`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Bot runtime credential access (bybit-futures)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`skills/bybit-futures/scripts/config.py` can read runtime credentials from:
+
+- `BYBIT_BRIDGE_URL` (default `http://127.0.0.1:3000/api/secure/bybit-credentials/runtime`)
+- `TRADING_BRIDGE_TOKEN`
+
+It falls back to `BYBIT_API_KEY` / `BYBIT_API_SECRET` env vars if explicitly set.
+
+## Deploy
+
+Vercel deployment is fine for dashboard UI, but secure credential bridge endpoints intentionally refuse persistent secret storage on Vercel runtime.

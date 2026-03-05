@@ -79,11 +79,13 @@ type TradingTestsPayload = {
   sources: { json: string; report: string };
 };
 
-function maskValue(value: string) {
-  if (!value) return "Not configured";
-  if (value.length < 8) return "••••••";
-  return `${value.slice(0, 4)}••••••${value.slice(-3)}`;
-}
+type CredentialStatus = {
+  configured: boolean;
+  storage: string;
+  updatedAt: string | null;
+  keyMasked: string;
+  secretMasked: string;
+};
 
 function money(v: number) {
   return `$${v.toFixed(2)}`;
@@ -104,9 +106,12 @@ export default function TradingPage() {
   const [confirmLiveText, setConfirmLiveText] = useState("");
   const [statusNote, setStatusNote] = useState("");
 
-  const [apiKey, setApiKey] = useState(() => (typeof window === "undefined" ? "" : localStorage.getItem("bybit-api-key") || ""));
-  const [apiSecret, setApiSecret] = useState(() => (typeof window === "undefined" ? "" : localStorage.getItem("bybit-api-secret") || ""));
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [bridgeToken, setBridgeToken] = useState("");
+  const [confirmStoreText, setConfirmStoreText] = useState("");
   const [showSecret, setShowSecret] = useState(false);
+  const [credentialStatus, setCredentialStatus] = useState<CredentialStatus | null>(null);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -129,8 +134,18 @@ export default function TradingPage() {
     fetchTests();
   }, []);
 
+  useEffect(() => {
+    const fetchCredentialStatus = async () => {
+      const res = await fetch("/api/secure/bybit-credentials", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = (await res.json()) as CredentialStatus;
+      setCredentialStatus(json);
+    };
+    fetchCredentialStatus();
+  }, []);
+
   const runtimeMode = state?.mode || "paper";
-  const hasKeys = apiKey.trim().length > 0 && apiSecret.trim().length > 0;
+  const hasKeys = credentialStatus?.configured === true;
 
   const testSummaryCards = useMemo(
     () =>
@@ -203,10 +218,39 @@ export default function TradingPage() {
     setStatusNote("Operator mode set to LIVE.");
   };
 
-  const saveKeys = () => {
-    localStorage.setItem("bybit-api-key", apiKey.trim());
-    localStorage.setItem("bybit-api-secret", apiSecret.trim());
-    setStatusNote("API credentials saved locally on this browser only.");
+  const saveKeys = async () => {
+    setStatusNote("");
+
+    if (!bridgeToken.trim()) {
+      setStatusNote("Bridge token is required to store credentials.");
+      return;
+    }
+
+    const res = await fetch("/api/secure/bybit-credentials", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bridgeToken.trim()}`,
+      },
+      body: JSON.stringify({
+        apiKey: apiKey.trim(),
+        apiSecret: apiSecret.trim(),
+        confirmText: confirmStoreText,
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      setStatusNote(json?.error || "Failed to store credentials.");
+      return;
+    }
+
+    setCredentialStatus(json.status as CredentialStatus);
+    setApiKey("");
+    setApiSecret("");
+    setConfirmStoreText("");
+    setBridgeToken("");
+    setStatusNote("Credentials stored in host encrypted bridge storage.");
   };
 
   const truthOnlyTags = useMemo(() => (state?.sourceTags || []).map((tag) => ({ tag, trust: "verified" as const })), [state?.sourceTags]);
@@ -367,16 +411,31 @@ export default function TradingPage() {
               </div>
             )}
 
-            <h3 className="mt-4 text-sm font-semibold">API key settings</h3>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Stored only in localStorage on this browser profile.</p>
+            <h3 className="mt-4 text-sm font-semibold">API key bridge settings</h3>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Keys are sent to an authenticated host bridge endpoint and stored as an encrypted file on your Windows host. Nothing is stored in browser localStorage.
+            </p>
+            <div className="mt-2 rounded-lg border p-3 text-xs" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.1)" }}>
+              <p className="font-semibold">High-risk action warning</p>
+              <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
+                Live API credentials can execute real trades. Use Bybit API keys with least privilege and no withdrawal permission.
+              </p>
+            </div>
             <div className="mt-2 space-y-2">
               <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Bybit API key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" spellCheck={false} />
               <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type={showSecret ? "text" : "password"} placeholder="Bybit API secret" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} autoComplete="new-password" spellCheck={false} />
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type="password" placeholder="Bridge token (TRADING_BRIDGE_TOKEN)" value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)} autoComplete="off" spellCheck={false} />
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder='Type "STORE LIVE KEYS" to confirm' value={confirmStoreText} onChange={(e) => setConfirmStoreText(e.target.value)} autoComplete="off" spellCheck={false} />
               <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded-lg px-3 py-2 text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }} onClick={saveKeys}>Save keys</button>
+                <button className="rounded-lg px-3 py-2 text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }} onClick={saveKeys}>Store keys securely</button>
                 <button className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }} onClick={() => setShowSecret((v) => !v)}>{showSecret ? "Hide secret" : "Show secret"}</button>
               </div>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Key: {maskValue(apiKey)} · Secret: {maskValue(apiSecret)}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Stored key: {credentialStatus?.keyMasked || "Not configured"} · Stored secret: {credentialStatus?.secretMasked || "Not configured"}
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Last updated: {credentialStatus?.updatedAt ? new Date(credentialStatus.updatedAt).toLocaleString() : "n/a"} · Storage: {credentialStatus?.storage || "n/a"}
+              </p>
             </div>
           </div>
 
