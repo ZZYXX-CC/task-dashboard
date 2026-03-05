@@ -108,6 +108,13 @@ type CredentialProfileStatus = {
   };
 };
 
+type BridgeAuthStatus = {
+  ok: boolean;
+  mode: "bearer" | "implicit-local" | "none";
+  status: "ready" | "setup-required" | "unauthorized";
+  message?: string;
+};
+
 type CredentialStatus = {
   storage: string;
   modeBinding: {
@@ -118,6 +125,7 @@ type CredentialStatus = {
     monitor: CredentialProfileStatus;
     execution: CredentialProfileStatus;
   };
+  bridgeAuth?: BridgeAuthStatus;
 };
 
 function money(v: number) {
@@ -140,6 +148,7 @@ export default function TradingPage() {
   const [statusNote, setStatusNote] = useState("");
 
   const [bridgeToken, setBridgeToken] = useState("");
+  const [credentialSetupError, setCredentialSetupError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<{ monitor: boolean; execution: boolean }>({ monitor: false, execution: false });
   const [credentialStatus, setCredentialStatus] = useState<CredentialStatus | null>(null);
   const [forms, setForms] = useState({
@@ -180,9 +189,14 @@ export default function TradingPage() {
   useEffect(() => {
     const fetchCredentialStatus = async () => {
       const res = await fetch("/api/secure/bybit-credentials", { cache: "no-store" });
-      if (!res.ok) return;
-      const json = (await res.json()) as CredentialStatus;
-      setCredentialStatus(json);
+      const json = await res.json();
+      if (!res.ok) {
+        setCredentialSetupError(json?.error || "Credential bridge is not ready.");
+        setCredentialStatus((json || {}) as CredentialStatus);
+        return;
+      }
+      setCredentialSetupError(null);
+      setCredentialStatus(json as CredentialStatus);
     };
     fetchCredentialStatus();
   }, []);
@@ -214,7 +228,7 @@ export default function TradingPage() {
   }, [expectedIp]);
 
   const runtimeMode = state?.mode || "paper";
-  const hasDemoExecutionKeys = credentialStatus?.profiles.execution.configured === true;
+  const hasDemoExecutionKeys = credentialStatus?.profiles?.execution?.configured === true;
 
   const testSummaryCards = useMemo(
     () =>
@@ -290,20 +304,17 @@ export default function TradingPage() {
   const saveKeys = async (profile: "monitor" | "execution") => {
     setStatusNote("");
 
-    if (!bridgeToken.trim()) {
-      const msg = "Bridge token is required to store credentials.";
-      setStatusNote(msg);
-      pushToast("error", msg);
-      return;
+    const form = forms[profile];
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (bridgeToken.trim()) {
+      headers.Authorization = `Bearer ${bridgeToken.trim()}`;
     }
 
-    const form = forms[profile];
     const res = await fetch("/api/secure/bybit-credentials", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${bridgeToken.trim()}`,
-      },
+      headers,
       body: JSON.stringify({
         profile,
         apiKey: form.apiKey.trim(),
@@ -321,12 +332,15 @@ export default function TradingPage() {
     const json = await res.json();
     if (!res.ok) {
       const reason = json?.error || "Failed to store credentials.";
-      setStatusNote(reason);
-      pushToast("error", `Save failed (${profile === "monitor" ? "Monitor" : "Demo Execution"}): ${reason}`);
+      const setupHint = json?.bridgeAuth?.status === "setup-required" ? ` Setup required: ${json?.bridgeAuth?.message || "Server bridge token is missing."}` : "";
+      const fullReason = `${reason}${setupHint}`.trim();
+      setStatusNote(fullReason);
+      pushToast("error", `Save failed (${profile === "monitor" ? "Monitor" : "Demo Execution"}): ${fullReason}`);
       return;
     }
 
     setCredentialStatus(json.status as CredentialStatus);
+    setCredentialSetupError(null);
     setForms((prev) => ({
       ...prev,
       [profile]: { ...prev[profile], apiKey: "", apiSecret: "", confirm: "" },
@@ -628,7 +642,15 @@ export default function TradingPage() {
               </p>
             </div>
 
-            <input className="mt-2 w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type="password" placeholder="Bridge token (TRADING_BRIDGE_TOKEN)" value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)} autoComplete="off" spellCheck={false} />
+            <input className="mt-2 w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type="password" placeholder="Bridge token (optional; leave blank for local server-side auth)" value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)} autoComplete="off" spellCheck={false} />
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Auth mode: {credentialStatus?.bridgeAuth?.mode === "implicit-local" ? "Server-configured local fallback" : credentialStatus?.bridgeAuth?.mode === "bearer" ? "Manual bearer token" : "Bridge setup required"}
+            </p>
+            {(credentialSetupError || credentialStatus?.bridgeAuth?.status === "setup-required") && (
+              <div className="mt-2 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "#ef4444", background: "rgba(239,68,68,.12)", color: "#fecaca" }}>
+                {credentialSetupError || credentialStatus?.bridgeAuth?.message || "Bridge setup is incomplete on server. Configure TRADING_BRIDGE_TOKEN and BYBIT_CREDENTIALS_MASTER_KEY."}
+              </div>
+            )}
 
             {(["monitor", "execution"] as const).map((profile) => {
               const form = forms[profile];

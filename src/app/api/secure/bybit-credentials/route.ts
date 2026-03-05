@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateBridgeToken, BybitProfile, CredentialMetadata, getCredentialStatus, writeCredentials } from "@/lib/credential-bridge";
+import { authenticateBridgeToken, BybitProfile, CredentialMetadata, getBridgeAuthStatus, getCredentialStatus, writeCredentials } from "@/lib/credential-bridge";
 
 export const runtime = "nodejs";
 
@@ -7,6 +7,13 @@ function normalizeProfile(value?: string): BybitProfile | null {
   if ((value || "").toLowerCase() === "monitor") return "monitor";
   if ((value || "").toLowerCase() === "execution") return "execution";
   return null;
+}
+
+function isLocalRequest(req: NextRequest) {
+  const forwarded = req.headers.get("x-forwarded-for") || "";
+  if (forwarded.includes("127.0.0.1") || forwarded.includes("::1") || forwarded.includes("localhost")) return true;
+  const host = req.headers.get("host") || "";
+  return host.startsWith("localhost") || host.startsWith("127.0.0.1");
 }
 
 function validConfirmText(profile: BybitProfile, confirmTextRaw: string) {
@@ -17,20 +24,28 @@ function validConfirmText(profile: BybitProfile, confirmTextRaw: string) {
   return false;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const local = isLocalRequest(req);
+  const bridgeAuth = getBridgeAuthStatus(local);
+
   try {
     const status = getCredentialStatus();
-    return Response.json(status);
+    return Response.json({ ...status, bridgeAuth });
   } catch (error) {
-    return Response.json({ error: (error as Error).message }, { status: 503 });
+    return Response.json({
+      error: (error as Error).message,
+      bridgeAuth,
+    }, { status: 503 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const ok = authenticateBridgeToken(req.headers.get("authorization"));
-    if (!ok) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const local = isLocalRequest(req);
+    const auth = authenticateBridgeToken(req.headers.get("authorization"), { allowImplicitLocal: local });
+    if (!auth.ok) {
+      const statusCode = auth.status === "setup-required" ? 503 : 401;
+      return Response.json({ error: auth.message || "Unauthorized", bridgeAuth: auth }, { status: statusCode });
     }
 
     const body = (await req.json()) as {

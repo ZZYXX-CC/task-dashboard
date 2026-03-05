@@ -226,11 +226,54 @@ export function resolveProfileFromMode(mode?: string): BybitProfile {
   return "monitor";
 }
 
-export function authenticateBridgeToken(authHeader: string | null) {
-  const expected = (process.env.TRADING_BRIDGE_TOKEN || "").trim();
-  if (!expected) throw new Error("TRADING_BRIDGE_TOKEN is not configured on this host.");
+export type BridgeAuthResult = {
+  ok: boolean;
+  mode: "bearer" | "implicit-local" | "none";
+  status: "ready" | "setup-required" | "unauthorized";
+  message?: string;
+};
 
-  if (!authHeader?.startsWith("Bearer ")) return false;
-  const actual = authHeader.slice("Bearer ".length).trim();
-  return actual.length > 0 && actual === expected;
+export function getBridgeAuthStatus(allowImplicitLocal = false): BridgeAuthResult {
+  const expected = (process.env.TRADING_BRIDGE_TOKEN || "").trim();
+  if (!expected) {
+    return {
+      ok: false,
+      mode: "none",
+      status: "setup-required",
+      message: "TRADING_BRIDGE_TOKEN is not configured on this host. Set it on the server to enable credential bridge writes.",
+    };
+  }
+
+  return {
+    ok: true,
+    mode: allowImplicitLocal ? "implicit-local" : "bearer",
+    status: "ready",
+  };
+}
+
+export function authenticateBridgeToken(authHeader: string | null, options?: { allowImplicitLocal?: boolean }): BridgeAuthResult {
+  const allowImplicitLocal = options?.allowImplicitLocal === true;
+  const bridgeStatus = getBridgeAuthStatus(allowImplicitLocal);
+  if (!bridgeStatus.ok) {
+    return bridgeStatus;
+  }
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const actual = authHeader.slice("Bearer ".length).trim();
+    const expected = (process.env.TRADING_BRIDGE_TOKEN || "").trim();
+    if (actual.length > 0 && actual === expected) {
+      return { ok: true, mode: "bearer", status: "ready" };
+    }
+  }
+
+  if (allowImplicitLocal) {
+    return { ok: true, mode: "implicit-local", status: "ready" };
+  }
+
+  return {
+    ok: false,
+    mode: "none",
+    status: "unauthorized",
+    message: "Unauthorized: bridge token missing or invalid.",
+  };
 }

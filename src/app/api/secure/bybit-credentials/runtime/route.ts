@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
       return Response.json({ error: "Runtime credential access allowed only from localhost." }, { status: 403 });
     }
 
-    const ok = authenticateBridgeToken(req.headers.get("authorization"));
-    if (!ok) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = authenticateBridgeToken(req.headers.get("authorization"));
+    if (!auth.ok) {
+      const statusCode = auth.status === "setup-required" ? 503 : 401;
+      return Response.json({ error: auth.message || "Unauthorized", bridgeAuth: auth }, { status: statusCode });
+    }
 
     const profileFromQuery = (req.nextUrl.searchParams.get("profile") || "").toLowerCase();
     const modeFromQuery = req.nextUrl.searchParams.get("mode") || "";
