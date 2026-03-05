@@ -2,9 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { baseAgents, baseTasks, type Agent, type Task } from "@/lib/dashboard-data";
+import {
+  baseAgents,
+  baseTasks,
+  taskHistory as baseTaskHistory,
+  telemetrySources as baseTelemetrySources,
+  type Agent,
+  type Task,
+  type TaskHistoryEvent,
+  type TelemetrySourceTag,
+} from "@/lib/dashboard-data";
 
-const BUILD_TAG = "2026-03-04 12:36 GMT+1";
+const BUILD_TAG = "2026-03-05 12:45 GMT+1";
+
+type HistoryMap = Record<string, TaskHistoryEvent[]>;
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(baseTasks);
@@ -12,6 +23,8 @@ export default function Home() {
   const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
   const [active, setActive] = useState<"tasks" | "agents">("tasks");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskHistory, setTaskHistory] = useState<HistoryMap>(baseTaskHistory);
+  const [telemetrySources, setTelemetrySources] = useState<TelemetrySourceTag[]>(baseTelemetrySources);
 
   useEffect(() => {
     const es = new EventSource("/api/live");
@@ -20,9 +33,13 @@ export default function Home() {
       setTasks(data.tasks);
       setAgents(data.agents);
       setUpdatedAt(data.updatedAt);
+      setTaskHistory(data.taskHistory ?? baseTaskHistory);
+      setTelemetrySources(data.telemetrySources ?? baseTelemetrySources);
     });
     return () => es.close();
   }, []);
+
+  const sourceMap = useMemo(() => Object.fromEntries(telemetrySources.map((s) => [s.key, s])), [telemetrySources]);
 
   const stats = useMemo(() => {
     const inProgress = tasks.filter((t) => t.status === "In Progress").length;
@@ -32,20 +49,37 @@ export default function Home() {
     return { inProgress, blocked, done, avg };
   }, [tasks]);
 
-  const tokenStats = useMemo(() => {
-    const parseTokens = (v: string) => {
-      const m = v.trim().toLowerCase();
-      if (m.endsWith("k")) return Math.round(parseFloat(m) * 1000);
-      if (m.endsWith("m")) return Math.round(parseFloat(m) * 1000000);
-      const n = Number(m.replace(/,/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
+  const timeline = useMemo(() => {
+    const segments = tasks
+      .map((task) => {
+        const events = [...(taskHistory[task.id] ?? [])].sort((a, b) => +new Date(a.at) - +new Date(b.at));
+        if (!events.length) return null;
+        return {
+          task,
+          start: +new Date(events[0].at),
+          end: +new Date(events[events.length - 1].at),
+          trust: events.every((e) => e.confidence === "verified") ? "verified" : "derived",
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
-    const perAgent = agents.map((a) => ({ name: a.name, tokens: parseTokens(a.tokensUsed) }));
-    const total = perAgent.reduce((acc, a) => acc + a.tokens, 0);
-    const top = [...perAgent].sort((a, b) => b.tokens - a.tokens)[0];
-    return { perAgent, total, top };
-  }, [agents]);
+    const referenceNow = +new Date(updatedAt);
+    const min = Math.min(...segments.map((s) => s.start), referenceNow - 1000 * 60 * 60);
+    const max = Math.max(...segments.map((s) => s.end), referenceNow);
+    const range = Math.max(max - min, 1);
+
+    return {
+      min,
+      max,
+      ticks: [0, 0.25, 0.5, 0.75, 1].map((pct) => ({ pct, label: new Date(min + range * pct).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })),
+      rows: segments
+        .sort((a, b) => b.end - a.end)
+        .slice(0, 8)
+        .map((s) => ({ ...s, left: ((s.start - min) / range) * 100, width: Math.max(((s.end - s.start) / range) * 100, 1.6) })),
+    };
+  }, [tasks, taskHistory, updatedAt]);
+
+  const selectedHistory = selectedTask ? [...(taskHistory[selectedTask.id] ?? [])].sort((a, b) => +new Date(b.at) - +new Date(a.at)) : [];
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#f5f9ff] to-[#edf4ff] text-slate-900 dark:from-[#0a1428] dark:to-[#050b18] dark:text-slate-100">
@@ -62,7 +96,7 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Updated {new Date(updatedAt).toLocaleTimeString()} · Build {BUILD_TAG}</p>
-          <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Data mode: truth-only snapshot (no simulated progress)</p>
+          <p className="mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">History only shows timestamped logged events. No synthetic timeline points are rendered.</p>
         </header>
 
         <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -74,43 +108,76 @@ export default function Home() {
 
         <section className="mt-3 glass rounded-2xl border border-white/40 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-bold">Token Usage Summary</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Total: {tokenStats.total.toLocaleString()}</span>
+            <h3 className="text-sm font-bold">Telemetry Sources</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Trust tags on every history row</span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {tokenStats.perAgent.map((x) => (
-              <div key={x.name} className="rounded-xl border border-white/40 bg-white/70 p-2 text-xs dark:bg-slate-900/40">
-                <p className="font-semibold">{x.name}</p>
-                <p className="text-slate-500 dark:text-slate-400">{x.tokens.toLocaleString()} tokens</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {telemetrySources.map((src) => (
+              <div key={src.key} className="rounded-xl border border-white/40 bg-white/70 p-2 text-xs dark:bg-slate-900/40">
+                <p className="font-semibold">{src.label}</p>
+                <p className="mt-1 text-slate-500 dark:text-slate-300">{src.channel.toUpperCase()} · {src.trust === "verified" ? "Verified" : "Derived"}</p>
               </div>
             ))}
           </div>
-          {tokenStats.top ? (
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-              Highest usage: <b>{tokenStats.top.name}</b> ({tokenStats.top.tokens.toLocaleString()} tokens)
-            </p>
-          ) : null}
+        </section>
+
+        <section className="mt-3 glass rounded-2xl border border-white/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-bold">Session Timeline (last capture window)</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Inspired by openclaw-dashboard timeline bars</span>
+          </div>
+          <div className="space-y-2">
+            {timeline.rows.map((row) => (
+              <div key={row.task.id} className="flex items-center gap-2 text-xs">
+                <div className="w-24 shrink-0 truncate text-right font-semibold text-slate-600 dark:text-slate-300">{row.task.id}</div>
+                <div className="relative h-4 flex-1 rounded bg-slate-200/70 dark:bg-slate-800/70">
+                  <div
+                    className={`absolute h-4 rounded ${row.trust === "verified" ? "bg-[#4a94c4]" : "bg-amber-500"}`}
+                    style={{ left: `${row.left}%`, width: `${row.width}%` }}
+                    title={`${row.task.title}`}
+                  />
+                </div>
+              </div>
+            ))}
+            <div className="relative ml-[6.5rem] h-5">
+              {timeline.ticks.map((tick) => (
+                <span key={tick.pct} className="absolute -translate-x-1/2 text-[10px] text-slate-500" style={{ left: `${tick.pct * 100}%` }}>
+                  {tick.label}
+                </span>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="mt-5 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
           <div className="glass rounded-3xl border border-white/40 p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-bold">Task Stream</h2>
-              <span className="rounded-full bg-[#ffd400] px-2 py-1 text-[11px] font-semibold text-slate-900">Tap for details</span>
+              <span className="rounded-full bg-[#ffd400] px-2 py-1 text-[11px] font-semibold text-slate-900">Tap for verified history</span>
             </div>
             <div className="space-y-2">
-              {tasks.map((t) => (
-                <button key={t.id} onClick={() => setSelectedTask(t)} className="w-full rounded-2xl border border-white/40 bg-white/70 p-3 text-left transition hover:scale-[1.01] dark:bg-slate-900/40">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">{t.title}</p>
-                    <StatusChip status={t.status} />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t.project} · {t.owner} · {t.id}</p>
-                  <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div className="h-full rounded-full bg-[#4a94c4]" style={{ width: `${t.progress}%` }} />
-                  </div>
-                </button>
-              ))}
+              {tasks.map((t) => {
+                const recentSources = Array.from(new Set((taskHistory[t.id] ?? []).slice(-3).map((e) => e.sourceKey)));
+                return (
+                  <button key={t.id} onClick={() => setSelectedTask(t)} className="w-full rounded-2xl border border-white/40 bg-white/70 p-3 text-left transition hover:scale-[1.01] dark:bg-slate-900/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{t.title}</p>
+                      <StatusChip status={t.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t.project} · {t.owner} · {t.id}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {recentSources.map((key) => (
+                        <span key={key} className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                          {sourceMap[key]?.label ?? key}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+                      <div className="h-full rounded-full bg-[#4a94c4]" style={{ width: `${t.progress}%` }} />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -174,26 +241,21 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
-                  <p className="mb-2 font-bold">Last Actions (timestamped)</p>
-                  <ul className="space-y-1">
-                    <li>• 13:06 — Updated progress checkpoint</li>
-                    <li>• 13:02 — Synced status from agent heartbeat</li>
-                    <li>• 12:58 — Revalidated dependency graph</li>
-                    <li>• 12:51 — Applied UI patch and retested</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
-                  <p className="mb-2 font-bold">Trace Snippets (files/commands)</p>
-                  <ul className="space-y-1 font-mono text-[11px]">
-                    <li>• src/app/page.tsx (updated)</li>
-                    <li>• src/lib/dashboard-data.ts (read)</li>
-                    <li>• cmd: npm run build</li>
-                    <li>• cmd: vercel --prod --yes</li>
-                  </ul>
-                </div>
+              <div className="mt-4 rounded-2xl border border-white/40 bg-white/60 p-3 text-xs dark:bg-slate-900/40">
+                <p className="mb-2 font-bold">Task History (newest first)</p>
+                <ul className="space-y-2">
+                  {selectedHistory.map((evt) => (
+                    <li key={evt.id} className="rounded-lg border border-slate-200/70 p-2 dark:border-slate-700">
+                      <p className="font-semibold">{evt.event}</p>
+                      <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
+                        {new Date(evt.at).toLocaleString()} · {sourceMap[evt.sourceKey]?.label ?? evt.sourceKey}
+                      </p>
+                      <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${evt.confidence === "verified" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {evt.confidence === "verified" ? "Verified" : "Derived"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
