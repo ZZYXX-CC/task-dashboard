@@ -30,8 +30,9 @@ $env:BYBIT_CREDENTIALS_MASTER_KEY="<32-byte-base64-or-long-passphrase>"
 
 - Bridge storage is **disabled** on Vercel/serverless (`VERCEL`, `NOW_REGION`, lambda env checks).
 - Runtime credential read endpoint is localhost-only + token-authenticated.
-- UI only shows masked key/secret + last updated timestamp.
-- Saving requires explicit confirmation text: `STORE LIVE KEYS`.
+- UI stores two encrypted profiles: `monitor` (read-only/paper) and `execution` (demo execution).
+- UI only shows masked key/secret + last updated timestamp per profile.
+- Saving requires explicit confirmation text per profile: `STORE MONITOR KEYS` or `STORE EXECUTION KEYS` (legacy `STORE LIVE KEYS` still accepted).
 
 ## Bot runtime credential access (bybit-futures)
 
@@ -40,7 +41,7 @@ $env:BYBIT_CREDENTIALS_MASTER_KEY="<32-byte-base64-or-long-passphrase>"
 - `BYBIT_BRIDGE_URL` (default `http://127.0.0.1:3000/api/secure/bybit-credentials/runtime`)
 - `TRADING_BRIDGE_TOKEN`
 
-It falls back to `BYBIT_API_KEY` / `BYBIT_API_SECRET` env vars if explicitly set.
+It binds mode automatically (`paper` => `monitor`, `demo` => `execution`) via `TRADING_OPERATOR_MODE` and falls back to `BYBIT_API_KEY` / `BYBIT_API_SECRET` env vars if explicitly set.
 
 ## Deploy
 

@@ -87,12 +87,29 @@ type TradingTestsPayload = {
   sources: { json: string; report: string; snapshot?: string };
 };
 
-type CredentialStatus = {
+type CredentialProfileStatus = {
   configured: boolean;
-  storage: string;
   updatedAt: string | null;
   keyMasked: string;
   secretMasked: string;
+  metadata?: {
+    keyLabel?: string;
+    accountType?: string;
+    testnet?: boolean;
+    ipWhitelistNote?: string;
+  };
+};
+
+type CredentialStatus = {
+  storage: string;
+  modeBinding: {
+    paper: "monitor";
+    demo: "execution";
+  };
+  profiles: {
+    monitor: CredentialProfileStatus;
+    execution: CredentialProfileStatus;
+  };
 };
 
 function money(v: number) {
@@ -106,20 +123,21 @@ function pct(v: number) {
 export default function TradingPage() {
   const [state, setState] = useState<TradingState | null>(null);
   const [tests, setTests] = useState<TradingTestsPayload | null>(null);
-  const [operatorMode, setOperatorMode] = useState<"paper" | "live">(() => {
+  const [operatorMode, setOperatorMode] = useState<"paper" | "demo">(() => {
     if (typeof window === "undefined") return "paper";
-    return (localStorage.getItem("trading-mode") as "paper" | "live") || "paper";
+    return (localStorage.getItem("trading-mode") as "paper" | "demo") || "paper";
   });
-  const [pendingMode, setPendingMode] = useState<"paper" | "live" | null>(null);
-  const [confirmLiveText, setConfirmLiveText] = useState("");
+  const [pendingMode, setPendingMode] = useState<"paper" | "demo" | null>(null);
+  const [confirmDemoText, setConfirmDemoText] = useState("");
   const [statusNote, setStatusNote] = useState("");
 
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
   const [bridgeToken, setBridgeToken] = useState("");
-  const [confirmStoreText, setConfirmStoreText] = useState("");
-  const [showSecret, setShowSecret] = useState(false);
+  const [showSecrets, setShowSecrets] = useState<{ monitor: boolean; execution: boolean }>({ monitor: false, execution: false });
   const [credentialStatus, setCredentialStatus] = useState<CredentialStatus | null>(null);
+  const [forms, setForms] = useState({
+    monitor: { apiKey: "", apiSecret: "", keyLabel: "", accountType: "UNIFIED", testnet: true, ipWhitelistNote: "", confirm: "" },
+    execution: { apiKey: "", apiSecret: "", keyLabel: "", accountType: "UNIFIED", testnet: true, ipWhitelistNote: "", confirm: "" },
+  });
 
   useEffect(() => {
     const fetchState = async () => {
@@ -153,7 +171,7 @@ export default function TradingPage() {
   }, []);
 
   const runtimeMode = state?.mode || "paper";
-  const hasKeys = credentialStatus?.configured === true;
+  const hasDemoExecutionKeys = credentialStatus?.profiles.execution.configured === true;
 
   const testSummaryCards = useMemo(
     () =>
@@ -198,35 +216,35 @@ export default function TradingPage() {
     [tests?.reportSnippet],
   );
 
-  const guardedSwitchRequest = (next: "paper" | "live") => {
+  const guardedSwitchRequest = (next: "paper" | "demo") => {
     setStatusNote("");
-    if (next === "live") {
-      if (!hasKeys) {
-        setStatusNote("Live mode requires both API key and API secret first.");
+    if (next === "demo") {
+      if (!hasDemoExecutionKeys) {
+        setStatusNote("Demo mode requires Demo Execution key + secret first.");
         return;
       }
-      setPendingMode("live");
+      setPendingMode("demo");
       return;
     }
 
     setOperatorMode("paper");
     localStorage.setItem("trading-mode", "paper");
-    setStatusNote("Operator mode set to PAPER.");
+    setStatusNote("Operator mode set to PAPER (binds to Monitor Read-Only key profile).");
   };
 
-  const confirmLiveSwitch = () => {
-    if (confirmLiveText.trim().toUpperCase() !== "LIVE") {
-      setStatusNote("Type LIVE exactly to confirm.");
+  const confirmDemoSwitch = () => {
+    if (confirmDemoText.trim().toUpperCase() !== "DEMO") {
+      setStatusNote("Type DEMO exactly to confirm.");
       return;
     }
-    setOperatorMode("live");
-    localStorage.setItem("trading-mode", "live");
+    setOperatorMode("demo");
+    localStorage.setItem("trading-mode", "demo");
     setPendingMode(null);
-    setConfirmLiveText("");
-    setStatusNote("Operator mode set to LIVE.");
+    setConfirmDemoText("");
+    setStatusNote("Operator mode set to DEMO (binds to Demo Execution key profile).");
   };
 
-  const saveKeys = async () => {
+  const saveKeys = async (profile: "monitor" | "execution") => {
     setStatusNote("");
 
     if (!bridgeToken.trim()) {
@@ -234,6 +252,7 @@ export default function TradingPage() {
       return;
     }
 
+    const form = forms[profile];
     const res = await fetch("/api/secure/bybit-credentials", {
       method: "POST",
       headers: {
@@ -241,9 +260,16 @@ export default function TradingPage() {
         Authorization: `Bearer ${bridgeToken.trim()}`,
       },
       body: JSON.stringify({
-        apiKey: apiKey.trim(),
-        apiSecret: apiSecret.trim(),
-        confirmText: confirmStoreText,
+        profile,
+        apiKey: form.apiKey.trim(),
+        apiSecret: form.apiSecret.trim(),
+        confirmText: form.confirm,
+        metadata: {
+          keyLabel: form.keyLabel,
+          accountType: form.accountType,
+          testnet: form.testnet,
+          ipWhitelistNote: form.ipWhitelistNote,
+        },
       }),
     });
 
@@ -254,11 +280,22 @@ export default function TradingPage() {
     }
 
     setCredentialStatus(json.status as CredentialStatus);
-    setApiKey("");
-    setApiSecret("");
-    setConfirmStoreText("");
+    setForms((prev) => ({
+      ...prev,
+      [profile]: { ...prev[profile], apiKey: "", apiSecret: "", confirm: "" },
+    }));
     setBridgeToken("");
-    setStatusNote("Credentials stored in host encrypted bridge storage.");
+    setStatusNote(`${profile === "monitor" ? "Monitor" : "Demo Execution"} credentials stored in host encrypted bridge storage.`);
+  };
+
+  const setFormField = <K extends keyof (typeof forms)["monitor"]>(profile: "monitor" | "execution", field: K, value: (typeof forms)["monitor"][K]) => {
+    setForms((prev) => ({
+      ...prev,
+      [profile]: {
+        ...prev[profile],
+        [field]: value,
+      },
+    }));
   };
 
   const truthOnlyTags = useMemo(() => (state?.sourceTags || []).map((tag) => ({ tag, trust: "verified" as const })), [state?.sourceTags]);
@@ -277,7 +314,7 @@ export default function TradingPage() {
 
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <Badge label={`Runtime ${runtimeMode.toUpperCase()}`} tone={runtimeMode === "live" ? "danger" : "ok"} />
-            <Badge label={`Operator ${operatorMode.toUpperCase()}`} tone={operatorMode === "live" ? "danger" : "neutral"} />
+            <Badge label={`Operator ${operatorMode.toUpperCase()}`} tone={operatorMode === "demo" ? "warn" : "neutral"} />
             <Badge label={`Status ${(state?.status || "...").toUpperCase()}`} tone={state?.status === "running" ? "ok" : "warn"} />
           </div>
 
@@ -395,57 +432,85 @@ export default function TradingPage() {
           <div className="panel p-4">
             <h2 className="text-sm font-semibold">Mode control (guarded)</h2>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-              This sets operator intent only. Runtime mode remains telemetry-truth from the bot.
+              This sets operator intent only. Runtime mode remains telemetry-truth from the bot. Mode binding is fixed: paper → Monitor Read-Only profile, demo → Demo Execution profile.
             </p>
             <div className="mt-3 inline-flex rounded-lg border p-1" style={{ borderColor: "var(--border)" }}>
               <button className="rounded px-3 py-1 text-sm" style={{ background: operatorMode === "paper" ? "var(--accent)" : "transparent", color: operatorMode === "paper" ? "white" : "var(--text-secondary)" }} onClick={() => guardedSwitchRequest("paper")}>Paper</button>
-              <button className="rounded px-3 py-1 text-sm" style={{ background: operatorMode === "live" ? "var(--red)" : "transparent", color: operatorMode === "live" ? "white" : "var(--text-secondary)" }} onClick={() => guardedSwitchRequest("live")}>Live</button>
+              <button className="rounded px-3 py-1 text-sm" style={{ background: operatorMode === "demo" ? "#f59e0b" : "transparent", color: operatorMode === "demo" ? "white" : "var(--text-secondary)" }} onClick={() => guardedSwitchRequest("demo")}>Demo</button>
             </div>
 
-            {pendingMode === "live" && (
+            {pendingMode === "demo" && (
               <div className="mt-3 rounded-lg border p-3 text-xs" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.1)" }}>
-                <p className="font-semibold">Guardrail: confirm live switch</p>
-                <p className="mt-1" style={{ color: "var(--text-secondary)" }}>Type <b>LIVE</b> then confirm.</p>
+                <p className="font-semibold">Guardrail: confirm demo switch</p>
+                <p className="mt-1" style={{ color: "var(--text-secondary)" }}>Type <b>DEMO</b> then confirm.</p>
                 <input
                   className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
                   style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}
-                  value={confirmLiveText}
-                  onChange={(e) => setConfirmLiveText(e.target.value)}
-                  placeholder="Type LIVE"
+                  value={confirmDemoText}
+                  onChange={(e) => setConfirmDemoText(e.target.value)}
+                  placeholder="Type DEMO"
                 />
                 <div className="mt-2 flex gap-2">
-                  <button className="rounded-lg px-3 py-2 text-xs font-semibold text-white" style={{ background: "#dc2626" }} onClick={confirmLiveSwitch}>Confirm LIVE</button>
-                  <button className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }} onClick={() => { setPendingMode(null); setConfirmLiveText(""); }}>Cancel</button>
+                  <button className="rounded-lg px-3 py-2 text-xs font-semibold text-white" style={{ background: "#f59e0b" }} onClick={confirmDemoSwitch}>Confirm DEMO</button>
+                  <button className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }} onClick={() => { setPendingMode(null); setConfirmDemoText(""); }}>Cancel</button>
                 </div>
               </div>
             )}
 
-            <h3 className="mt-4 text-sm font-semibold">API key bridge settings</h3>
+            <h3 className="mt-4 text-sm font-semibold">Bybit key bridge settings (dual profile)</h3>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
               Keys are sent to an authenticated host bridge endpoint and stored as an encrypted file on your Windows host. Nothing is stored in browser localStorage.
             </p>
             <div className="mt-2 rounded-lg border p-3 text-xs" style={{ borderColor: "#f59e0b", background: "rgba(245,158,11,.1)" }}>
               <p className="font-semibold">High-risk action warning</p>
               <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-                Live API credentials can execute real trades. Use Bybit API keys with least privilege and no withdrawal permission.
+                Demo execution keys can place orders in the demo environment. Use least privilege, disable withdrawals, and keep IP allowlist tight.
               </p>
             </div>
-            <div className="mt-2 space-y-2">
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Bybit API key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" spellCheck={false} />
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type={showSecret ? "text" : "password"} placeholder="Bybit API secret" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} autoComplete="new-password" spellCheck={false} />
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type="password" placeholder="Bridge token (TRADING_BRIDGE_TOKEN)" value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)} autoComplete="off" spellCheck={false} />
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder='Type "STORE LIVE KEYS" to confirm' value={confirmStoreText} onChange={(e) => setConfirmStoreText(e.target.value)} autoComplete="off" spellCheck={false} />
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded-lg px-3 py-2 text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }} onClick={saveKeys}>Store keys securely</button>
-                <button className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }} onClick={() => setShowSecret((v) => !v)}>{showSecret ? "Hide secret" : "Show secret"}</button>
-              </div>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Stored key: {credentialStatus?.keyMasked || "Not configured"} · Stored secret: {credentialStatus?.secretMasked || "Not configured"}
-              </p>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Last updated: {credentialStatus?.updatedAt ? new Date(credentialStatus.updatedAt).toLocaleString() : "n/a"} · Storage: {credentialStatus?.storage || "n/a"}
-              </p>
-            </div>
+
+            <input className="mt-2 w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type="password" placeholder="Bridge token (TRADING_BRIDGE_TOKEN)" value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)} autoComplete="off" spellCheck={false} />
+
+            {(["monitor", "execution"] as const).map((profile) => {
+              const form = forms[profile];
+              const status = credentialStatus?.profiles?.[profile];
+              const isMonitor = profile === "monitor";
+              const title = isMonitor ? "Monitor Read-Only profile (for paper mode)" : "Demo Execution profile (for demo mode)";
+              const confirmText = isMonitor ? 'Type "STORE MONITOR KEYS" to confirm' : 'Type "STORE EXECUTION KEYS" to confirm';
+
+              return (
+                <div key={profile} className="mt-3 rounded-lg border p-3 text-xs" style={{ borderColor: "var(--border)" }}>
+                  <p className="font-semibold">{title}</p>
+                  <div className="mt-2 space-y-2">
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Bybit API key" value={form.apiKey} onChange={(e) => setFormField(profile, "apiKey", e.target.value)} autoComplete="off" spellCheck={false} />
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} type={showSecrets[profile] ? "text" : "password"} placeholder="Bybit API secret" value={form.apiSecret} onChange={(e) => setFormField(profile, "apiSecret", e.target.value)} autoComplete="new-password" spellCheck={false} />
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Key label (optional)" value={form.keyLabel} onChange={(e) => setFormField(profile, "keyLabel", e.target.value)} autoComplete="off" spellCheck={false} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="Account type (e.g. UNIFIED)" value={form.accountType} onChange={(e) => setFormField(profile, "accountType", e.target.value)} autoComplete="off" spellCheck={false} />
+                      <label className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }}>
+                        <input type="checkbox" checked={form.testnet} onChange={(e) => setFormField(profile, "testnet", e.target.checked)} />
+                        Testnet / Demo key
+                      </label>
+                    </div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder="IP whitelist note (optional)" value={form.ipWhitelistNote} onChange={(e) => setFormField(profile, "ipWhitelistNote", e.target.value)} autoComplete="off" spellCheck={false} />
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-card)" }} placeholder={confirmText} value={form.confirm} onChange={(e) => setFormField(profile, "confirm", e.target.value)} autoComplete="off" spellCheck={false} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button className="rounded-lg px-3 py-2 text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }} onClick={() => saveKeys(profile)}>{status?.configured ? "Rotate / update keys" : "Store keys securely"}</button>
+                      <button className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--border)" }} onClick={() => setShowSecrets((v) => ({ ...v, [profile]: !v[profile] }))}>{showSecrets[profile] ? "Hide secret" : "Show secret"}</button>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Stored key: {status?.keyMasked || "Not configured"} · Stored secret: {status?.secretMasked || "Not configured"}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Last updated: {status?.updatedAt ? new Date(status.updatedAt).toLocaleString() : "n/a"} · Label: {status?.metadata?.keyLabel || "n/a"} · Account: {status?.metadata?.accountType || "n/a"} · Testnet: {typeof status?.metadata?.testnet === "boolean" ? (status.metadata.testnet ? "yes" : "no") : "n/a"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
+            <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+              Storage: {credentialStatus?.storage || "n/a"} · Binding: paper → monitor, demo → execution
+            </p>
           </div>
 
           <div className="panel p-4">

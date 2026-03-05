@@ -12,7 +12,27 @@ type StoredRecord = {
   updatedAt: string;
 };
 
+export type BybitProfile = "monitor" | "execution";
+
+export type CredentialMetadata = {
+  keyLabel?: string;
+  accountType?: string;
+  testnet?: boolean;
+  ipWhitelistNote?: string;
+};
+
+export type CredentialProfilePayload = {
+  apiKey: string;
+  apiSecret: string;
+  updatedAt: string;
+  metadata?: CredentialMetadata;
+};
+
 export type CredentialPayload = {
+  profiles: Partial<Record<BybitProfile, CredentialProfilePayload>>;
+};
+
+type LegacyCredentialPayload = {
   apiKey: string;
   apiSecret: string;
   updatedAt: string;
@@ -49,10 +69,47 @@ function maskValue(value: string) {
   return `${value.slice(0, 4)}••••••${value.slice(-3)}`;
 }
 
+function normalizePayload(payload: CredentialPayload | LegacyCredentialPayload): CredentialPayload {
+  if ((payload as CredentialPayload).profiles) {
+    return payload as CredentialPayload;
+  }
+
+  const legacy = payload as LegacyCredentialPayload;
+  return {
+    profiles: {
+      monitor: {
+        apiKey: legacy.apiKey,
+        apiSecret: legacy.apiSecret,
+        updatedAt: legacy.updatedAt,
+      },
+    },
+  };
+}
+
 export function assertWritableHostStorage() {
   if (isServerlessRuntime()) {
     throw new Error("Credential bridge is disabled on serverless/Vercel runtime. Run this panel on your local trusted host.");
   }
+}
+
+function profileStatus(profile?: CredentialProfilePayload) {
+  if (!profile) {
+    return {
+      configured: false,
+      updatedAt: null,
+      keyMasked: "Not configured",
+      secretMasked: "Not configured",
+      metadata: {},
+    };
+  }
+
+  return {
+    configured: true,
+    updatedAt: profile.updatedAt,
+    keyMasked: maskValue(profile.apiKey),
+    secretMasked: maskValue(profile.apiSecret),
+    metadata: profile.metadata || {},
+  };
 }
 
 export function getCredentialStatus() {
@@ -60,34 +117,54 @@ export function getCredentialStatus() {
   const path = getStoragePath();
   if (!existsSync(path)) {
     return {
-      configured: false,
       storage: "windows-encrypted-file",
-      updatedAt: null,
-      keyMasked: "Not configured",
-      secretMasked: "Not configured",
+      modeBinding: {
+        paper: "monitor",
+        demo: "execution",
+      },
+      profiles: {
+        monitor: profileStatus(),
+        execution: profileStatus(),
+      },
     };
   }
 
   const creds = readCredentials();
   return {
-    configured: true,
     storage: "windows-encrypted-file",
-    updatedAt: creds.updatedAt,
-    keyMasked: maskValue(creds.apiKey),
-    secretMasked: maskValue(creds.apiSecret),
+    modeBinding: {
+      paper: "monitor",
+      demo: "execution",
+    },
+    profiles: {
+      monitor: profileStatus(creds.profiles.monitor),
+      execution: profileStatus(creds.profiles.execution),
+    },
   };
 }
 
-export function writeCredentials(apiKey: string, apiSecret: string) {
+function cleanMetadata(metadata?: CredentialMetadata): CredentialMetadata {
+  if (!metadata) return {};
+  const out: CredentialMetadata = {};
+  if (metadata.keyLabel?.trim()) out.keyLabel = metadata.keyLabel.trim();
+  if (metadata.accountType?.trim()) out.accountType = metadata.accountType.trim();
+  if (typeof metadata.testnet === "boolean") out.testnet = metadata.testnet;
+  if (metadata.ipWhitelistNote?.trim()) out.ipWhitelistNote = metadata.ipWhitelistNote.trim();
+  return out;
+}
+
+export function writeCredentials(profile: BybitProfile, apiKey: string, apiSecret: string, metadata?: CredentialMetadata) {
   assertWritableHostStorage();
 
-  const payload: CredentialPayload = {
+  const nextPayload = existsSync(getStoragePath()) ? readCredentials() : ({ profiles: {} } as CredentialPayload);
+  nextPayload.profiles[profile] = {
     apiKey: apiKey.trim(),
     apiSecret: apiSecret.trim(),
     updatedAt: new Date().toISOString(),
+    metadata: cleanMetadata(metadata),
   };
 
-  const plaintext = Buffer.from(JSON.stringify(payload), "utf-8");
+  const plaintext = Buffer.from(JSON.stringify(nextPayload), "utf-8");
   const iv = randomBytes(12);
   const key = getMasterKey();
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -102,7 +179,7 @@ export function writeCredentials(apiKey: string, apiSecret: string) {
     iv: iv.toString("base64"),
     tag: tag.toString("base64"),
     ciphertext: encrypted.toString("base64"),
-    updatedAt: payload.updatedAt,
+    updatedAt: new Date().toISOString(),
   };
 
   const path = getStoragePath();
@@ -133,10 +210,20 @@ export function readCredentials(): CredentialPayload {
     decipher.final(),
   ]);
 
-  const payload = JSON.parse(decrypted.toString("utf-8")) as CredentialPayload;
-  if (!payload.apiKey || !payload.apiSecret) throw new Error("Credential payload is incomplete.");
+  const payload = normalizePayload(JSON.parse(decrypted.toString("utf-8")) as CredentialPayload | LegacyCredentialPayload);
+
+  for (const profileName of ["monitor", "execution"] as const) {
+    const p = payload.profiles[profileName];
+    if (!p) continue;
+    if (!p.apiKey || !p.apiSecret) throw new Error(`Credential payload for ${profileName} is incomplete.`);
+  }
 
   return payload;
+}
+
+export function resolveProfileFromMode(mode?: string): BybitProfile {
+  if ((mode || "").toLowerCase() === "demo") return "execution";
+  return "monitor";
 }
 
 export function authenticateBridgeToken(authHeader: string | null) {
